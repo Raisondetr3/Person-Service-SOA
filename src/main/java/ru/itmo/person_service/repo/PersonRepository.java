@@ -20,6 +20,6 @@ public interface PersonRepository extends JpaRepository<Person, Integer>, JpaSpe
     @Query("SELECT p FROM Person p WHERE p.name IS NOT NULL ORDER BY LENGTH(p.name) DESC LIMIT 1")
     Optional<Person> findPersonWithMaxName();
 
-    @Query("SELECT p FROM Person p WHERE CAST(p.nationality AS int) < CAST(:nationality AS int)")
+    @Query("SELECT p FROM Person p WHERE p.nationality < :nationality")
     List<Person> findByNationalityLessThan(@Param("nationality") Country nationality);
 }
