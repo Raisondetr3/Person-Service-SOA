@@ -32,4 +32,18 @@ public record PersonDTO(
                 person.getLocation()
         );
     }
+
+    public Person toPerson() {
+        return new Person(
+                id,
+                name,
+                coordinates,
+                creationDate,
+                height,
+                weight,
+                hairColor,
+                nationality,
+                location
+        );
+    }
 }

@@ -30,12 +30,13 @@ public class Location {
     @NotNull(message = "Location name cannot be null")
     @Column(name = "location_name", nullable = false)
     private String name;
-    @Id
-    private Long id;
+
+//    @Id
+//    private Long id;
 
     @Override
     public String toString() {
-        return String.format("Location{x=%d, y=%.2f, z=%.2f, name='%s'}", x, y, z, name);
+        return String.format("Location{x=%d, y=%.2f, z=%.2f}", x, y, z);
     }
 
     @Override
@@ -47,12 +48,14 @@ public class Location {
 
         return Objects.equals(x, location.x) &&
                 Objects.equals(y, location.y) &&
-                Objects.equals(z, location.z) &&
-                Objects.equals(name, location.name);
+                Objects.equals(z, location.z);
+//                &&
+//                Objects.equals(name, location.name);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(x, y, z, name);
+//        return Objects.hash(x, y, z, name);
+        return Objects.hash(x, y, z);
     }
 }

@@ -166,7 +166,7 @@ public class PersonService {
             person.setCreationDate(LocalDateTime.now());
         }
 
-        log.info("Saving person: {}", person.getName());
+        log.info("Saving person: {}", person);
         return personRepository.save(person);
     }
 
