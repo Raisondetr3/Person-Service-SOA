@@ -1,22 +1,21 @@
 package ru.itmo.person_service.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ru.itmo.person_service.PageResponse;
 import ru.itmo.person_service.dto.PersonDTO;
 import ru.itmo.person_service.entity.Person;
+import ru.itmo.person_service.entity.enums.Color;
 import ru.itmo.person_service.service.PersonService;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/persons")
+@RequestMapping("/persons")
 @RequiredArgsConstructor
 public class PersonController {
     private final PersonService personService;
@@ -77,11 +76,12 @@ public class PersonController {
         return ResponseEntity.ok(exists);
     }
 
-    @DeleteMapping("/by-hair-color/{hairColor}")
-    public ResponseEntity<Void> deleteByHairColor(@PathVariable String hairColor) {
+    @DeleteMapping("/hair-color/{hairColor}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteByHairColor(@PathVariable Color hairColor) {
         personService.deleteByHairColor(hairColor);
-        return ResponseEntity.noContent().build();
     }
+
 
     @GetMapping("/max-name")
     public ResponseEntity<PersonDTO> getPersonWithMaxName() {

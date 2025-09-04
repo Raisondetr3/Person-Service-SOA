@@ -3,6 +3,7 @@ package ru.itmo.person_service.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.itmo.person_service.entity.Person;
+import ru.itmo.person_service.entity.enums.Color;
 import ru.itmo.person_service.repo.PersonRepository;
 
 import java.util.List;
@@ -41,7 +42,7 @@ public class PersonService {
         personRepository.deleteAll();
     }
 
-    public void deleteByHairColor(String hairColor) {
+    public void deleteByHairColor(Color hairColor) {
         Optional<Person> person = personRepository.findByHairColor(hairColor);
         person.ifPresent(p -> personRepository.deleteById(p.getId()));
     }
