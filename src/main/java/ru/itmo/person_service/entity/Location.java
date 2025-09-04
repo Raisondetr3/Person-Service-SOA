@@ -1,7 +1,6 @@
 package ru.itmo.person_service.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -31,6 +30,8 @@ public class Location {
     @NotNull(message = "Location name cannot be null")
     @Column(name = "location_name", nullable = false)
     private String name;
+    @Id
+    private Long id;
 
     @Override
     public String toString() {

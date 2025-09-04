@@ -177,7 +177,7 @@ public class PersonController {
             @Parameter(description = "Person ID", required = true)
             @PathVariable Integer id) {
 
-        personService.deleteById(id); // Сервис сам выбросит исключение если не найден
+        personService.deleteById(id);
         return ResponseEntity.noContent().build();
     }
 
