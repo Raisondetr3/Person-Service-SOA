@@ -1,13 +1,18 @@
 package ru.itmo.person_service.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import ru.itmo.person_service.entity.enums.Color;
 import ru.itmo.person_service.entity.enums.Country;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "persons")
@@ -16,13 +21,41 @@ import ru.itmo.person_service.entity.enums.Country;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Person {
-    private int id; //Значение поля должно быть больше 0, Значение этого поля должно быть уникальным, Значение этого поля должно генерироваться автоматически
-    private String name; //Поле не может быть null, Строка не может быть пустой
-    private Coordinates coordinates; //Поле не может быть null
-    private java.time.LocalDateTime creationDate; //Поле не может быть null, Значение этого поля должно генерироваться автоматически
-    private Long height; //Поле может быть null, Значение поля должно быть больше 0
-    private float weight; //Значение поля должно быть больше 0
-    private Color hairColor; //Поле не может быть null
-    private Country nationality; //Поле не может быть null
-    private Location location; //Поле может быть null
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @NotBlank(message = "Name cannot be null or empty")
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Valid
+    @NotNull(message = "Coordinates cannot be null")
+    @Embedded
+    private Coordinates coordinates;
+
+    @Column(name = "creation_date", nullable = false)
+    private LocalDateTime creationDate;
+
+    @Min(value = 1, message = "Height must be greater than 0")
+    @Column(name = "height")
+    private Long height;
+
+    @Min(value = 1, message = "Weight must be greater than 0")
+    @Column(name = "weight", nullable = false)
+    private float weight;
+
+    @NotNull(message = "Hair color cannot be null")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "hair_color", nullable = false)
+    private Color hairColor;
+
+    @NotNull(message = "Nationality cannot be null")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "nationality", nullable = false)
+    private Country nationality;
+
+    @Valid
+    @Embedded
+    private Location location;
 }
