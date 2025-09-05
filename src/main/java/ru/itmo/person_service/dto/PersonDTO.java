@@ -11,25 +11,25 @@ import java.time.LocalDateTime;
 public record PersonDTO(
         Integer id,
         String name,
-        Coordinates coordinates,
+        CoordinatesDTO coordinates,
         LocalDateTime creationDate,
         Long height,
         Float weight,
         Color hairColor,
         Country nationality,
-        Location location
+        LocationDTO location
 ) {
     public static PersonDTO create(Person person) {
         return new PersonDTO(
                 person.getId(),
                 person.getName(),
-                person.getCoordinates(),
+                CoordinatesDTO.create(person.getCoordinates()),
                 person.getCreationDate(),
                 person.getHeight(),
                 person.getWeight(),
                 person.getHairColor(),
                 person.getNationality(),
-                person.getLocation()
+                LocationDTO.create(person.getLocation())
         );
     }
 
@@ -37,13 +37,13 @@ public record PersonDTO(
         return new Person(
                 id,
                 name,
-                coordinates,
+                coordinates.toCoordinates(),
                 creationDate,
                 height,
                 weight,
                 hairColor,
                 nationality,
-                location
+                location.toLocation()
         );
     }
 }

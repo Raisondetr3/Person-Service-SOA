@@ -48,7 +48,7 @@ public class PersonController {
             @ApiResponse(responseCode = "400", description = "Invalid pagination or filter parameters")
     })
     @GetMapping
-    public ResponseEntity<Page<PersonDTO>> getAllPersons(
+    public ResponseEntity<List<PersonDTO>> getAllPersons(
             @Parameter(description = "Page number (0-based)")
             @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size")
@@ -97,8 +97,14 @@ public class PersonController {
 
         Page<PersonDTO> personDtoPage = personPage.map(PersonDTO::create);
 
-        return ResponseEntity.ok(personDtoPage);
+        return ResponseEntity.ok(personDtoPage.stream().toList());
     }
+
+//    @GetMapping
+//    public ResponseEntity<List<PersonDTO>> getAllPersons() {
+//        List<Person> persons = personService.findAll();
+//        return ResponseEntity.ok(persons.stream().map(PersonDTO::create).toList());
+//    }
 
     @Operation(
             summary = "Get person by ID",
