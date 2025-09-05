@@ -16,6 +16,7 @@ import java.util.Objects;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Location {
+
     @Column(name = "location_x")
     private Integer x;
 
@@ -29,6 +30,8 @@ public class Location {
     @NotNull(message = "Location name cannot be null")
     @Column(name = "location_name", nullable = false)
     private String name;
+    @Id
+    private Long id;
 
     @Override
     public String toString() {

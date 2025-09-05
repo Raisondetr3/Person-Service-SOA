@@ -19,7 +19,6 @@ import ru.itmo.person_service.entity.enums.Color;
 import ru.itmo.person_service.entity.enums.Country;
 import ru.itmo.person_service.service.PersonService;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -132,9 +131,9 @@ public class PersonController {
     @PostMapping
     public ResponseEntity<PersonDTO> createPerson(
             @Parameter(description = "Person data", required = true)
-            @Valid @RequestBody Person person) {
+            @Valid @RequestBody PersonDTO personDTO) {
 
-        Person savedPerson = personService.save(person);
+        Person savedPerson = personService.save(personDTO.toPerson());
         return ResponseEntity.status(HttpStatus.CREATED).body(PersonDTO.create(savedPerson));
     }
 
