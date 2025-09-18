@@ -54,7 +54,7 @@ public class PersonController {
             @Parameter(description = "Page size")
             @RequestParam(defaultValue = "10") int size,
             @Parameter(description = "Field to sort by")
-            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortBy,  //TODO arrays
             @Parameter(description = "Sort direction (asc/desc)")
             @RequestParam(required = false, defaultValue = "asc") String sortDirection,
             @Parameter(description = "Filter by name")
@@ -187,16 +187,6 @@ public class PersonController {
     }
 
     @Operation(
-            summary = "Delete all persons",
-            description = "Remove all persons from the collection"
-    )
-    @DeleteMapping
-    public ResponseEntity<Void> deleteAllPersons() {
-        personService.deleteAll();
-        return ResponseEntity.noContent().build();
-    }
-
-    @Operation(
             summary = "Get total count of persons",
             description = "Retrieve the total number of persons in the collection"
     )
@@ -224,18 +214,17 @@ public class PersonController {
             description = "Delete one (any) person with the specified hair color"
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Person deleted successfully"),
+            @ApiResponse(responseCode = "204", description = "Person deleted successfully"),
             @ApiResponse(responseCode = "404", description = "No person found with specified hair color"),
             @ApiResponse(responseCode = "400", description = "Invalid hair color")
     })
     @DeleteMapping("/hair-color/{hairColor}")
-    public ResponseEntity<PersonDTO> deleteByHairColor(
+    public ResponseEntity<Void> deleteByHairColor(
             @Parameter(description = "Hair color to delete", required = true)
             @PathVariable Color hairColor) {
 
-        Optional<Person> deletedPerson = personService.deleteByHairColor(hairColor);
-        return deletedPerson.map(p -> ResponseEntity.ok(PersonDTO.create(p)))
-                .orElse(ResponseEntity.notFound().build());
+        personService.deleteByHairColor(hairColor);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(
