@@ -191,12 +191,6 @@ public class PersonService {
     }
 
     @Transactional
-    public void deleteAll() {
-        log.warn("Deleting all persons from database");
-        personRepository.deleteAll();
-    }
-
-    @Transactional
     public Optional<Person> deleteByHairColor(Color hairColor) {
         if (hairColor == null) {
             throw new InvalidPersonDataException("Hair color cannot be null");
