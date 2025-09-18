@@ -1,17 +1,17 @@
 package ru.itmo.person_service.service;
 
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.Path;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.itmo.person_service.entity.Coordinates;
 import ru.itmo.person_service.entity.Person;
+import ru.itmo.person_service.entity.Location;
 import ru.itmo.person_service.entity.enums.Color;
 import ru.itmo.person_service.entity.enums.Country;
 import ru.itmo.person_service.exception.InvalidPersonDataException;
@@ -30,13 +30,20 @@ public class PersonService {
 
     private final PersonRepository personRepository;
 
-    public List<Person> findAll() {
-        return personRepository.findAll();
-    }
+    // Поддерживаемые операторы фильтрации
+    private static final Map<String, String> FILTER_OPERATORS = Map.of(
+            "gt", ">",   // greater than
+            "gte", ">=", // greater than or equal
+            "lt", "<",   // less than
+            "lte", "<=", // less than or equal
+            "eq", "=",   // equal
+            "ne", "!=",  // not equal
+            "like", "~"  // contains substring
+    );
 
     public Page<Person> findAllWithFilters(Map<String, String> filterParams, Pageable pageable) {
         Map<String, String> cleanedFilters = removeSystemParams(filterParams);
-        Specification<Person> spec = buildSpecification(cleanedFilters);
+        Specification<Person> spec = buildAdvancedSpecification(cleanedFilters);
         return personRepository.findAll(spec, pageable);
     }
 
@@ -49,40 +56,32 @@ public class PersonService {
         return cleaned;
     }
 
-    private Specification<Person> buildSpecification(Map<String, String> filters) {
+    private Specification<Person> buildAdvancedSpecification(Map<String, String> filters) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            filters.forEach((field, value) -> {
+            filters.forEach((filterKey, value) -> {
                 if (value == null || value.trim().isEmpty()) return;
 
                 try {
-                    Path<Object> path = getFieldPath(root, field);
+                    FilterConfig filterConfig = parseFilterKey(filterKey);
+                    Path<Object> path = getFieldPath(root, filterConfig.fieldName);
+
                     if (path == null) {
-                        log.warn("Field '{}' not found in Person entity", field);
+                        log.warn("Field '{}' not found in Person entity", filterConfig.fieldName);
                         return;
                     }
 
-                    Class<?> type = path.getJavaType();
+                    Predicate predicate = buildPredicateForOperator(
+                            cb, path, filterConfig.operator, value, path.getJavaType());
 
-                    if (String.class == type) {
-                        predicates.add(cb.like(
-                                cb.lower(cb.function("CAST", String.class, path)),
-                                "%" + value.toLowerCase() + "%"
-                        ));
-                    } else if (Enum.class.isAssignableFrom(type)) {
-                        handleEnumFilter(predicates, cb, path, value, type);
-                    } else if (Number.class.isAssignableFrom(type) || type.isPrimitive()) {
-                        handleNumericFilter(predicates, cb, path, value, type);
-                    } else {
-                        Object convertedValue = convertValue(value, type);
-                        if (convertedValue != null) {
-                            predicates.add(cb.equal(path, convertedValue));
-                        }
+                    if (predicate != null) {
+                        predicates.add(predicate);
                     }
+
                 } catch (Exception e) {
-                    log.warn("Error processing filter field '{}' with value '{}': {}",
-                            field, value, e.getMessage());
+                    log.warn("Error processing filter '{}' with value '{}': {}",
+                            filterKey, value, e.getMessage());
                 }
             });
 
@@ -90,6 +89,171 @@ public class PersonService {
                     cb.conjunction() :
                     cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    private FilterConfig parseFilterKey(String filterKey) {
+        if (!filterKey.contains("[")) {
+            return new FilterConfig(filterKey, "eq");
+        }
+
+        int bracketStart = filterKey.indexOf('[');
+        int bracketEnd = filterKey.indexOf(']');
+
+        if (bracketStart == -1 || bracketEnd == -1 || bracketEnd <= bracketStart) {
+            return new FilterConfig(filterKey, "eq");
+        }
+
+        String fieldName = filterKey.substring(0, bracketStart);
+        String operator = filterKey.substring(bracketStart + 1, bracketEnd);
+
+        if (!FILTER_OPERATORS.containsKey(operator)) {
+            log.warn("Unsupported filter operator: {}", operator);
+            return new FilterConfig(fieldName, "eq");
+        }
+
+        return new FilterConfig(fieldName, operator);
+    }
+
+    private Predicate buildPredicateForOperator(CriteriaBuilder cb, Path<Object> path,
+                                                String operator, String value, Class<?> fieldType) {
+
+        switch (operator) {
+            case "like":
+                return buildLikePredicate(cb, path, value, fieldType);
+            case "eq":
+                return buildEqualPredicate(cb, path, value, fieldType);
+            case "ne":
+                return buildNotEqualPredicate(cb, path, value, fieldType);
+            case "gt":
+                return buildGreaterThanPredicate(cb, path, value, fieldType);
+            case "gte":
+                return buildGreaterThanOrEqualPredicate(cb, path, value, fieldType);
+            case "lt":
+                return buildLessThanPredicate(cb, path, value, fieldType);
+            case "lte":
+                return buildLessThanOrEqualPredicate(cb, path, value, fieldType);
+            default:
+                log.warn("Unknown operator: {}", operator);
+                return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Predicate buildLikePredicate(CriteriaBuilder cb, Path<Object> path, String value, Class<?> fieldType) {
+        if (String.class.isAssignableFrom(fieldType)) {
+            Expression<String> stringPath = path.as(String.class);
+            return cb.like(cb.lower(stringPath), "%" + value.toLowerCase() + "%");
+        } else {
+            Expression<String> stringExpression = cb.function("CAST", String.class, path);
+            return cb.like(cb.lower(stringExpression), "%" + value.toLowerCase() + "%");
+        }
+    }
+
+    private Predicate buildEqualPredicate(CriteriaBuilder cb, Path<Object> path, String value, Class<?> fieldType) {
+        Object convertedValue = convertValueToType(value, fieldType);
+        return convertedValue != null ? cb.equal(path, convertedValue) : null;
+    }
+
+    private Predicate buildNotEqualPredicate(CriteriaBuilder cb, Path<Object> path, String value, Class<?> fieldType) {
+        Object convertedValue = convertValueToType(value, fieldType);
+        return convertedValue != null ? cb.notEqual(path, convertedValue) : null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Predicate buildGreaterThanPredicate(CriteriaBuilder cb, Path<Object> path, String value, Class<?> fieldType) {
+        if (isComparable(fieldType)) {
+            Comparable<Object> convertedValue = (Comparable<Object>) convertValueToType(value, fieldType);
+            if (convertedValue != null) {
+                Expression<? extends Comparable> comparableExpression = path.as((Class<? extends Comparable>) fieldType);
+                return cb.greaterThan((Expression<Comparable>) comparableExpression, convertedValue);
+            }
+        }
+        log.warn("Cannot apply 'greater than' operator to non-comparable field type: {}", fieldType.getSimpleName());
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Predicate buildGreaterThanOrEqualPredicate(CriteriaBuilder cb, Path<Object> path, String value, Class<?> fieldType) {
+        if (isComparable(fieldType)) {
+            Comparable<Object> convertedValue = (Comparable<Object>) convertValueToType(value, fieldType);
+            if (convertedValue != null) {
+                Expression<? extends Comparable> comparableExpression = path.as((Class<? extends Comparable>) fieldType);
+                return cb.greaterThanOrEqualTo((Expression<Comparable>) comparableExpression, convertedValue);
+            }
+        }
+        log.warn("Cannot apply 'greater than or equal' operator to non-comparable field type: {}", fieldType.getSimpleName());
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Predicate buildLessThanPredicate(CriteriaBuilder cb, Path<Object> path, String value, Class<?> fieldType) {
+        if (isComparable(fieldType)) {
+            Comparable<Object> convertedValue = (Comparable<Object>) convertValueToType(value, fieldType);
+            if (convertedValue != null) {
+                Expression<? extends Comparable> comparableExpression = path.as((Class<? extends Comparable>) fieldType);
+                return cb.lessThan((Expression<Comparable>) comparableExpression, convertedValue);
+            }
+        }
+        log.warn("Cannot apply 'less than' operator to non-comparable field type: {}", fieldType.getSimpleName());
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Predicate buildLessThanOrEqualPredicate(CriteriaBuilder cb, Path<Object> path, String value, Class<?> fieldType) {
+        if (isComparable(fieldType)) {
+            Comparable<Object> convertedValue = (Comparable<Object>) convertValueToType(value, fieldType);
+            if (convertedValue != null) {
+                Expression<? extends Comparable> comparableExpression = path.as((Class<? extends Comparable>) fieldType);
+                return cb.lessThanOrEqualTo((Expression<Comparable>) comparableExpression, convertedValue);
+            }
+        }
+        log.warn("Cannot apply 'less than or equal' operator to non-comparable field type: {}", fieldType.getSimpleName());
+        return null;
+    }
+
+    private boolean isComparable(Class<?> type) {
+        return Number.class.isAssignableFrom(type) ||
+                type.isPrimitive() ||
+                String.class.isAssignableFrom(type) ||
+                Enum.class.isAssignableFrom(type) ||
+                Comparable.class.isAssignableFrom(type);
+    }
+
+    private Object convertValueToType(String value, Class<?> targetType) {
+        try {
+            if (String.class.isAssignableFrom(targetType)) {
+                return value;
+            } else if (targetType == Long.class || targetType == long.class) {
+                return Long.valueOf(value);
+            } else if (targetType == Integer.class || targetType == int.class) {
+                return Integer.valueOf(value);
+            } else if (targetType == Double.class || targetType == double.class) {
+                return Double.valueOf(value);
+            } else if (targetType == Float.class || targetType == float.class) {
+                return Float.valueOf(value);
+            } else if (targetType == Boolean.class || targetType == boolean.class) {
+                return Boolean.valueOf(value);
+            } else if (Enum.class.isAssignableFrom(targetType)) {
+                return convertToEnum(value, targetType);
+            } else if (targetType == LocalDateTime.class) {
+                return LocalDateTime.parse(value);
+            }
+
+            return value;
+        } catch (Exception e) {
+            log.warn("Failed to convert value '{}' to type {}: {}", value, targetType.getSimpleName(), e.getMessage());
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Enum<?> convertToEnum(String value, Class<?> enumType) {
+        try {
+            return Enum.valueOf((Class<Enum>) enumType, value.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid enum value '{}' for type {}", value, enumType.getSimpleName());
+            return null;
+        }
     }
 
     private Path<Object> getFieldPath(Root<Person> root, String field) {
@@ -105,53 +269,21 @@ public class PersonService {
                 return root.get(field);
             }
         } catch (IllegalArgumentException e) {
+            log.warn("Field '{}' not found in entity", field);
             return null;
         }
     }
 
-    private void handleEnumFilter(List<Predicate> predicates,
-                                  CriteriaBuilder cb,
-                                  Path<Object> path, String value, Class<?> type) {
-        try {
-            Enum<?> enumValue = Enum.valueOf((Class<Enum>) type, value.toUpperCase());
-            predicates.add(cb.equal(path, enumValue));
-        } catch (IllegalArgumentException e) {
-            log.warn("Invalid enum value '{}' for type {}", value, type.getSimpleName());
+    private static class FilterConfig {
+        final String fieldName;
+        final String operator;
+
+        FilterConfig(String fieldName, String operator) {
+            this.fieldName = fieldName;
+            this.operator = operator;
         }
     }
 
-    private void handleNumericFilter(List<Predicate> predicates,
-                                     CriteriaBuilder cb,
-                                     Path<Object> path, String value, Class<?> type) {
-        try {
-            Object convertedValue = convertValue(value, type);
-            if (convertedValue != null) {
-                predicates.add(cb.equal(path, convertedValue));
-            }
-        } catch (NumberFormatException e) {
-            log.warn("Invalid numeric value '{}' for type {}", value, type.getSimpleName());
-        }
-    }
-
-    private Object convertValue(String value, Class<?> targetType) {
-        try {
-            if (targetType == Long.class || targetType == long.class) {
-                return Long.valueOf(value);
-            } else if (targetType == Integer.class || targetType == int.class) {
-                return Integer.valueOf(value);
-            } else if (targetType == Double.class || targetType == double.class) {
-                return Double.valueOf(value);
-            } else if (targetType == Float.class || targetType == float.class) {
-                return Float.valueOf(value);
-            } else if (targetType == Boolean.class || targetType == boolean.class) {
-                return Boolean.valueOf(value);
-            }
-            return value;
-        } catch (NumberFormatException e) {
-            log.warn("Failed to convert value '{}' to type {}", value, targetType.getSimpleName());
-            return null;
-        }
-    }
 
     public Optional<Person> findById(Integer id) {
         validateId(id);
@@ -166,8 +298,45 @@ public class PersonService {
             person.setCreationDate(LocalDateTime.now());
         }
 
-        log.info("Saving person: {}", person);
-        return personRepository.save(person);
+        try {
+            log.info("Saving person: {}", person.getName());
+            return personRepository.save(person);
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation while saving person: {}", e.getMessage());
+
+            if (e.getMessage().contains("duplicate") || e.getMessage().contains("unique")) {
+                throw new PersonValidationException("Person with these attributes already exists");
+            } else if (e.getMessage().contains("not-null constraint") || e.getMessage().contains("null value")) {
+                throw new PersonValidationException("Required fields are missing or invalid");
+            } else if (e.getMessage().contains("foreign key constraint")) {
+                throw new PersonValidationException("Referenced entity does not exist");
+            }
+
+            throw new InvalidPersonDataException("Data integrity violation: " + extractUserFriendlyMessage(e));
+        } catch (Exception e) {
+            log.error("Unexpected error while saving person: {}", e.getMessage(), e);
+            throw new InvalidPersonDataException("Unable to save person: " + e.getMessage());
+        }
+    }
+
+    private String extractUserFriendlyMessage(DataIntegrityViolationException e) {
+        String message = e.getMessage();
+
+        if (message.contains("null value in column \"name\"")) {
+            return "Name is required";
+        } else if (message.contains("null value in column \"coordinates")) {
+            return "Coordinates are required";
+        } else if (message.contains("null value in column \"hair_color\"")) {
+            return "Hair color is required";
+        } else if (message.contains("null value in column \"eye_color\"")) {
+            return "Eye color is required";
+        } else if (message.contains("null value in column \"nationality\"")) {
+            return "Nationality is required";
+        } else if (message.contains("null value in column \"weight\"")) {
+            return "Weight is required";
+        }
+
+        return "Invalid data provided";
     }
 
     @Transactional
@@ -228,6 +397,42 @@ public class PersonService {
         return result;
     }
 
+    public double calculateHairColorPercentage(Color hairColor) {
+        if (hairColor == null) {
+            throw new InvalidPersonDataException("Hair color cannot be null");
+        }
+
+        long totalCount = personRepository.countAllPersons();
+        if (totalCount == 0) {
+            log.info("No persons found in database");
+            return 0.0;
+        }
+
+        long hairColorCount = personRepository.countByHairColor(hairColor);
+        double percentage = ((double) hairColorCount / totalCount) * 100;
+
+        log.info("Hair color {} statistics: {} out of {} persons ({}%)",
+                hairColor, hairColorCount, totalCount, String.format("%.2f", percentage));
+
+        return percentage;
+    }
+
+    public long calculateNationalityEyeColorCount(Country nationality, Color eyeColor) {
+        if (nationality == null) {
+            throw new InvalidPersonDataException("Nationality cannot be null");
+        }
+        if (eyeColor == null) {
+            throw new InvalidPersonDataException("Eye color cannot be null");
+        }
+
+        long count = personRepository.countByEyeColorAndNationality(eyeColor, nationality);
+
+        log.info("Found {} persons with nationality {} and eye color {}",
+                count, nationality, eyeColor);
+
+        return count;
+    }
+
     private void validateId(Integer id) {
         if (id == null || id <= 0) {
             throw new PersonValidationException("id", "ID must be a positive number");
@@ -242,31 +447,81 @@ public class PersonService {
         Map<String, String> errors = new HashMap<>();
 
         if (person.getName() == null || person.getName().trim().isEmpty()) {
-            errors.put("name", "Name cannot be null or empty");
+            errors.put("name", "Name is required and cannot be empty");
+        } else if (person.getName().trim().length() > 255) {
+            errors.put("name", "Name cannot exceed 255 characters");
         }
 
         if (person.getCoordinates() == null) {
-            errors.put("coordinates", "Coordinates cannot be null");
+            errors.put("coordinates", "Coordinates are required");
+        } else {
+            validateCoordinates(person.getCoordinates(), errors);
         }
 
         if (person.getWeight() <= 0) {
             errors.put("weight", "Weight must be greater than 0");
+        } else if (person.getWeight() > 1000) {
+            errors.put("weight", "Weight cannot exceed 1000 kg");
         }
 
-        if (person.getHeight() != null && person.getHeight() <= 0) {
-            errors.put("height", "Height must be greater than 0");
+        if (person.getHeight() != null) {
+            if (person.getHeight() <= 0) {
+                errors.put("height", "Height must be greater than 0");
+            } else if (person.getHeight() > 300) {
+                errors.put("height", "Height cannot exceed 300 cm");
+            }
         }
 
         if (person.getHairColor() == null) {
-            errors.put("hairColor", "Hair color cannot be null");
+            errors.put("hairColor", "Hair color is required");
+        }
+
+        if (person.getEyeColor() == null) {
+            errors.put("eyeColor", "Eye color is required");
         }
 
         if (person.getNationality() == null) {
-            errors.put("nationality", "Nationality cannot be null");
+            errors.put("nationality", "Nationality is required");
+        }
+
+        if (person.getLocation() != null) {
+            validateLocation(person.getLocation(), errors);
         }
 
         if (!errors.isEmpty()) {
             throw new PersonValidationException(errors);
+        }
+    }
+
+    private void validateCoordinates(Coordinates coordinates, Map<String, String> errors) {
+        if (coordinates.getX() == null) {
+            errors.put("coordinates.x", "Coordinate X is required");
+        } else if (Math.abs(coordinates.getX()) > 180) {
+            errors.put("coordinates.x", "Coordinate X must be between -180 and 180");
+        }
+
+        if (coordinates.getY() == null) {
+            errors.put("coordinates.y", "Coordinate Y is required");
+        } else if (Math.abs(coordinates.getY()) > 90) {
+            errors.put("coordinates.y", "Coordinate Y must be between -90 and 90");
+        }
+    }
+
+    private void validateLocation(Location location, Map<String, String> errors) {
+        if (location.getName() != null && location.getName().trim().length() > 255) {
+            errors.put("location.name", "Location name cannot exceed 255 characters");
+        }
+
+        if (location.getX() != null && (location.getX() < -180 || location.getX() > 180)) {
+            errors.put("location.x", "Location X must be between -180 and 180");
+        }
+
+        if (location.getY() != null && (location.getY() < -90 || location.getY() > 90)) {
+            errors.put("location.y", "Location Y must be between -90 and 90");
+        }
+
+        if (location.getZ() != null && (location.getZ() < -10000 || location.getZ() > 10000)) {
+            errors.put("location.z", "Location Z must be between -10000 and 10000");
         }
     }
 

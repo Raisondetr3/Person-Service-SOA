@@ -8,29 +8,26 @@ public class PersonValidationException extends RuntimeException {
     private final Map<String, String> errors;
 
     public PersonValidationException(Map<String, String> errors) {
-        super("Validation failed: " + errors.toString());
+        super("Person validation failed: " + errors.toString());
         this.errors = new HashMap<>(errors);
     }
 
     public PersonValidationException(String field, String message) {
-        super("Validation failed for field '" + field + "': " + message);
-        this.errors = Map.of(field, message);
+        super("Person validation failed: " + field + " - " + message);
+        this.errors = new HashMap<>();
+        this.errors.put(field, message);
     }
 
     public PersonValidationException(String message) {
         super(message);
-        this.errors = new HashMap<>();
+        this.errors = null;
     }
 
     public Map<String, String> getErrors() {
-        return new HashMap<>(errors);
+        return errors;
     }
 
-    public boolean hasErrors() {
-        return !errors.isEmpty();
-    }
-
-    public void addError(String field, String message) {
-        errors.put(field, message);
+    public boolean hasFieldErrors() {
+        return errors != null && !errors.isEmpty();
     }
 }

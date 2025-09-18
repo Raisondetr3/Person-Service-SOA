@@ -22,7 +22,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class Person {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "persons_id_seq")
+    @SequenceGenerator(name = "persons_id_seq", sequenceName = "persons_id_seq", allocationSize = 1)
+    @Column(name = "id")
     private Integer id;
 
     @NotBlank(message = "Name cannot be null or empty")
@@ -49,6 +51,11 @@ public class Person {
     @Enumerated(EnumType.STRING)
     @Column(name = "hair_color", nullable = false)
     private Color hairColor;
+
+    @NotNull(message = "Eye color cannot be null")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "eye_color", nullable = false)
+    private Color eyeColor;
 
     @NotNull(message = "Nationality cannot be null")
     @Enumerated(EnumType.STRING)

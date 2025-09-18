@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ru.itmo.person_service.dto.PersonDTO;
+import ru.itmo.person_service.dto.PersonRequestDTO;
+import ru.itmo.person_service.dto.PersonResponseDTO;
 import ru.itmo.person_service.entity.Person;
 import ru.itmo.person_service.entity.enums.Color;
 import ru.itmo.person_service.entity.enums.Country;
@@ -40,49 +42,120 @@ public class PersonController {
     private final PersonService personService;
 
     @Operation(
-            summary = "Get all persons with filtering, sorting and pagination",
-            description = "Retrieve paginated list of persons with optional filtering by any field and sorting"
+            summary = "Get all persons with advanced filtering, sorting and pagination",
+            description = "Retrieve paginated list of persons with advanced filtering capabilities."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Successfully retrieved persons"),
-            @ApiResponse(responseCode = "400", description = "Invalid pagination or filter parameters")
+            @ApiResponse(responseCode = "400", description = "Invalid pagination or filter parameters"),
+            @ApiResponse(responseCode = "422", description = "Invalid filter operator or value format")
     })
     @GetMapping
-    public ResponseEntity<List<PersonDTO>> getAllPersons(
-            @Parameter(description = "Page number (0-based)")
+    public ResponseEntity<List<PersonResponseDTO>> getAllPersons(
+            @Parameter(description = "Page number (0-based)", example = "0")
             @RequestParam(defaultValue = "0") int page,
-            @Parameter(description = "Page size")
-            @RequestParam(defaultValue = "10") int size,
-            @Parameter(description = "Field to sort by")
-            @RequestParam(required = false) String sortBy,  //TODO arrays
-            @Parameter(description = "Sort direction (asc/desc)")
-            @RequestParam(required = false, defaultValue = "asc") String sortDirection,
-            @Parameter(description = "Filter by name")
-            @RequestParam(required = false) String name,
-            @Parameter(description = "Filter by hair color")
-            @RequestParam(required = false) Color hairColor,
-            @Parameter(description = "Filter by nationality")
-            @RequestParam(required = false) Country nationality,
-            @Parameter(description = "Filter by height")
-            @RequestParam(required = false) Long height,
-            @Parameter(description = "Filter by weight")
-            @RequestParam(required = false) Float weight,
-            @Parameter(description = "Filter by coordinates.x")
-            @RequestParam(required = false) Long coordinatesX,
-            @Parameter(description = "Filter by coordinates.y")
-            @RequestParam(required = false) Long coordinatesY,
-            @Parameter(description = "Filter by location.name")
-            @RequestParam(required = false) String locationName) {
 
-        Map<String, String> filterParams = new HashMap<>();
-        if (name != null) filterParams.put("name", name);
-        if (hairColor != null) filterParams.put("hairColor", hairColor.toString());
-        if (nationality != null) filterParams.put("nationality", nationality.toString());
-        if (height != null) filterParams.put("height", height.toString());
-        if (weight != null) filterParams.put("weight", weight.toString());
-        if (coordinatesX != null) filterParams.put("coordinates.x", coordinatesX.toString());
-        if (coordinatesY != null) filterParams.put("coordinates.y", coordinatesY.toString());
-        if (locationName != null) filterParams.put("location.name", locationName);
+            @Parameter(description = "Page size", example = "10")
+            @RequestParam(defaultValue = "10") int size,
+
+            @Parameter(description = "Field to sort by", example = "name")
+            @RequestParam(required = false) String sortBy,
+
+            @Parameter(description = "Sort direction (asc/desc)", example = "asc")
+            @RequestParam(required = false, defaultValue = "asc") String sortDirection,
+
+            @Parameter(description = "Exact name match", example = "Alice Johnson")
+            @RequestParam(required = false) String name,
+
+            @Parameter(description = "Name contains substring (case insensitive)", example = "Alice")
+            @RequestParam(name = "name[like]", required = false) String nameContains,
+
+            @Parameter(description = "Name not equal to", example = "Bob Smith")
+            @RequestParam(name = "name[ne]", required = false) String nameNotEqual,
+
+            @Parameter(description = "Exact height", example = "175")
+            @RequestParam(required = false) Long height,
+
+            @Parameter(description = "Height greater than", example = "170")
+            @RequestParam(name = "height[gt]", required = false) Long heightGreaterThan,
+
+            @Parameter(description = "Height greater than or equal", example = "175")
+            @RequestParam(name = "height[gte]", required = false) Long heightGreaterOrEqual,
+
+            @Parameter(description = "Height less than", example = "180")
+            @RequestParam(name = "height[lt]", required = false) Long heightLessThan,
+
+            @Parameter(description = "Height less than or equal", example = "175")
+            @RequestParam(name = "height[lte]", required = false) Long heightLessOrEqual,
+
+            @Parameter(description = "Exact weight", example = "65.5")
+            @RequestParam(required = false) Float weight,
+
+            @Parameter(description = "Weight greater than", example = "60.0")
+            @RequestParam(name = "weight[gt]", required = false) Float weightGreaterThan,
+
+            @Parameter(description = "Weight greater than or equal", example = "65.0")
+            @RequestParam(name = "weight[gte]", required = false) Float weightGreaterOrEqual,
+
+            @Parameter(description = "Weight less than", example = "70.0")
+            @RequestParam(name = "weight[lt]", required = false) Float weightLessThan,
+
+            @Parameter(description = "Weight less than or equal", example = "65.0")
+            @RequestParam(name = "weight[lte]", required = false) Float weightLessOrEqual,
+
+            @Parameter(description = "Exact hair color match", example = "BROWN")
+            @RequestParam(required = false) Color hairColor,
+
+            @Parameter(description = "Hair color not equal to", example = "BROWN")
+            @RequestParam(name = "hairColor[ne]", required = false) Color hairColorNotEqual,
+
+            @Parameter(description = "Exact eye color match", example = "BLUE")
+            @RequestParam(required = false) Color eyeColor,
+
+            @Parameter(description = "Eye color not equal to", example = "BLUE")
+            @RequestParam(name = "eyeColor[ne]", required = false) Color eyeColorNotEqual,
+
+            @Parameter(description = "Exact nationality match", example = "FRANCE")
+            @RequestParam(required = false) Country nationality,
+
+            @Parameter(description = "Nationality not equal to", example = "FRANCE")
+            @RequestParam(name = "nationality[ne]", required = false) Country nationalityNotEqual,
+
+            @Parameter(description = "Nationality greater than (alphabetical)", example = "FRANCE")
+            @RequestParam(name = "nationality[gt]", required = false) Country nationalityGreaterThan,
+
+            @Parameter(description = "Exact coordinates X", example = "10")
+            @RequestParam(required = false) Long coordinatesX,
+
+            @Parameter(description = "Coordinates X greater than", example = "0")
+            @RequestParam(name = "coordinates.x[gt]", required = false) Long coordinatesXGreaterThan,
+
+            @Parameter(description = "Coordinates X less than", example = "50")
+            @RequestParam(name = "coordinates.x[lt]", required = false) Long coordinatesXLessThan,
+
+            @Parameter(description = "Exact coordinates Y", example = "20")
+            @RequestParam(required = false) Long coordinatesY,
+
+            @Parameter(description = "Coordinates Y greater than", example = "0")
+            @RequestParam(name = "coordinates.y[gt]", required = false) Long coordinatesYGreaterThan,
+
+            @Parameter(description = "Coordinates Y less than", example = "50")
+            @RequestParam(name = "coordinates.y[lt]", required = false) Long coordinatesYLessThan,
+
+            @Parameter(description = "Exact location name", example = "Paris")
+            @RequestParam(required = false) String locationName,
+
+            @Parameter(description = "Location name contains substring", example = "Center")
+            @RequestParam(name = "location.name[like]", required = false) String locationNameContains,
+
+            HttpServletRequest request) {
+
+        Map<String, String> allParams = request.getParameterMap().entrySet().stream()
+                .filter(entry -> entry.getValue().length > 0)
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue()[0]
+                ));
 
         Sort sort = Sort.unsorted();
         if (sortBy != null && !sortBy.isEmpty()) {
@@ -93,18 +166,11 @@ public class PersonController {
         }
 
         Pageable pageable = PageRequest.of(page, size, sort);
-        Page<Person> personPage = personService.findAllWithFilters(filterParams, pageable);
-
-        Page<PersonDTO> personDtoPage = personPage.map(PersonDTO::create);
+        Page<Person> personPage = personService.findAllWithFilters(allParams, pageable);
+        Page<PersonResponseDTO> personDtoPage = personPage.map(PersonResponseDTO::create);
 
         return ResponseEntity.ok(personDtoPage.stream().toList());
     }
-
-//    @GetMapping
-//    public ResponseEntity<List<PersonDTO>> getAllPersons() {
-//        List<Person> persons = personService.findAll();
-//        return ResponseEntity.ok(persons.stream().map(PersonDTO::create).toList());
-//    }
 
     @Operation(
             summary = "Get person by ID",
@@ -116,12 +182,12 @@ public class PersonController {
             @ApiResponse(responseCode = "400", description = "Invalid ID format")
     })
     @GetMapping("/{id}")
-    public ResponseEntity<PersonDTO> getPersonById(
+    public ResponseEntity<PersonResponseDTO> getPersonById(
             @Parameter(description = "Person ID", required = true)
             @PathVariable Integer id) {
 
         Optional<Person> person = personService.findById(id);
-        return person.map(p -> ResponseEntity.ok(PersonDTO.create(p)))
+        return person.map(p -> ResponseEntity.ok(PersonResponseDTO.create(p)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -135,12 +201,12 @@ public class PersonController {
             @ApiResponse(responseCode = "409", description = "Person already exists")
     })
     @PostMapping
-    public ResponseEntity<PersonDTO> createPerson(
+    public ResponseEntity<PersonResponseDTO> createPerson(
             @Parameter(description = "Person data", required = true)
-            @Valid @RequestBody PersonDTO personDTO) {
+            @Valid @RequestBody PersonRequestDTO personDTO) {
 
         Person savedPerson = personService.save(personDTO.toPerson());
-        return ResponseEntity.status(HttpStatus.CREATED).body(PersonDTO.create(savedPerson));
+        return ResponseEntity.status(HttpStatus.CREATED).body(PersonResponseDTO.create(savedPerson));
     }
 
     @Operation(
@@ -153,19 +219,27 @@ public class PersonController {
             @ApiResponse(responseCode = "400", description = "Invalid person data")
     })
     @PutMapping("/{id}")
-    public ResponseEntity<PersonDTO> updatePerson(
+    public ResponseEntity<PersonResponseDTO> updatePerson(
             @Parameter(description = "Person ID", required = true)
             @PathVariable Integer id,
             @Parameter(description = "Updated person data", required = true)
-            @Valid @RequestBody Person person) {
+            @Valid @RequestBody PersonRequestDTO personDTO) {
 
         if (!personService.existsById(id)) {
             return ResponseEntity.notFound().build();
         }
 
-        person.setId(id);
-        Person updatedPerson = personService.save(person);
-        return ResponseEntity.ok(PersonDTO.create(updatedPerson));
+        Optional<Person> existingPerson = personService.findById(id);
+        if (existingPerson.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Person updatedPerson = personDTO.toPerson();
+        updatedPerson.setId(id);
+        updatedPerson.setCreationDate(existingPerson.get().getCreationDate());
+
+        Person savedPerson = personService.save(updatedPerson);
+        return ResponseEntity.ok(PersonResponseDTO.create(savedPerson));
     }
 
     @Operation(
@@ -228,17 +302,17 @@ public class PersonController {
     }
 
     @Operation(
-            summary = "Get person with maximum name",
-            description = "Return one (any) person whose name field value is maximum"
+            summary = "Get person with longest name",
+            description = "Return one person whose name has the maximum length (most characters)"
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Person with max name found"),
+            @ApiResponse(responseCode = "200", description = "Person with longest name found"),
             @ApiResponse(responseCode = "404", description = "No persons found")
     })
     @GetMapping("/max-name")
-    public ResponseEntity<PersonDTO> getPersonWithMaxName() {
+    public ResponseEntity<PersonResponseDTO> getPersonWithMaxName() {
         Optional<Person> person = personService.findPersonWithMaxName();
-        return person.map(p -> ResponseEntity.ok(PersonDTO.create(p)))
+        return person.map(p -> ResponseEntity.ok(PersonResponseDTO.create(p)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -251,13 +325,13 @@ public class PersonController {
             @ApiResponse(responseCode = "400", description = "Invalid nationality")
     })
     @GetMapping("/nationality-less-than/{nationality}")
-    public ResponseEntity<List<PersonDTO>> getPersonsByNationalityLessThan(
+    public ResponseEntity<List<PersonResponseDTO>> getPersonsByNationalityLessThan(
             @Parameter(description = "Nationality to compare", required = true)
             @PathVariable Country nationality) {
 
         List<Person> persons = personService.findByNationalityLessThan(nationality);
-        List<PersonDTO> personDtos = persons.stream()
-                .map(PersonDTO::create)
+        List<PersonResponseDTO> personDtos = persons.stream()
+                .map(PersonResponseDTO::create)
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(personDtos);

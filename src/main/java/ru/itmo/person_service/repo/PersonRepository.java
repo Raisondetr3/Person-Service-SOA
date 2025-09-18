@@ -22,4 +22,16 @@ public interface PersonRepository extends JpaRepository<Person, Integer>, JpaSpe
 
     @Query("SELECT p FROM Person p WHERE p.nationality < :nationality")
     List<Person> findByNationalityLessThan(@Param("nationality") Country nationality);
+
+    @Query("SELECT COUNT(p) FROM Person p WHERE p.eyeColor = :eyeColor AND p.nationality = :nationality")
+    Long countByEyeColorAndNationality(@Param("eyeColor") Color eyeColor, @Param("nationality") Country nationality);
+
+    @Query("SELECT COUNT(p) FROM Person p WHERE p.nationality = :nationality")
+    Long countByNationality(@Param("nationality") Country nationality);
+
+    @Query("SELECT COUNT(p) FROM Person p WHERE p.hairColor = :hairColor")
+    Long countByHairColor(@Param("hairColor") Color hairColor);
+
+    @Query("SELECT COUNT(p) FROM Person p")
+    Long countAllPersons();
 }

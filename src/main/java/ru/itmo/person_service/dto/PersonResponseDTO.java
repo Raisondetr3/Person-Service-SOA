@@ -1,14 +1,12 @@
 package ru.itmo.person_service.dto;
 
-import ru.itmo.person_service.entity.Coordinates;
-import ru.itmo.person_service.entity.Location;
 import ru.itmo.person_service.entity.Person;
 import ru.itmo.person_service.entity.enums.Color;
 import ru.itmo.person_service.entity.enums.Country;
 
 import java.time.LocalDateTime;
 
-public record PersonDTO(
+public record PersonResponseDTO(
         Integer id,
         String name,
         CoordinatesDTO coordinates,
@@ -16,11 +14,12 @@ public record PersonDTO(
         Long height,
         Float weight,
         Color hairColor,
+        Color eyeColor,
         Country nationality,
         LocationDTO location
 ) {
-    public static PersonDTO create(Person person) {
-        return new PersonDTO(
+    public static PersonResponseDTO create(Person person) {
+        return new PersonResponseDTO(
                 person.getId(),
                 person.getName(),
                 CoordinatesDTO.create(person.getCoordinates()),
@@ -28,22 +27,9 @@ public record PersonDTO(
                 person.getHeight(),
                 person.getWeight(),
                 person.getHairColor(),
+                person.getEyeColor(),
                 person.getNationality(),
                 LocationDTO.create(person.getLocation())
-        );
-    }
-
-    public Person toPerson() {
-        return new Person(
-                id,
-                name,
-                coordinates.toCoordinates(),
-                creationDate,
-                height,
-                weight,
-                hairColor,
-                nationality,
-                location.toLocation()
         );
     }
 }
