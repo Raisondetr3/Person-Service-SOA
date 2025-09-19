@@ -61,13 +61,8 @@ public class PersonController {
             @Parameter(description = "Page size", example = "10")
             @RequestParam(defaultValue = "10") int size,
 
-//            @Parameter(description = "Field to sort by", example = "name")
-//            @RequestParam(required = false) List<String> sortBy,
             @Parameter(description = "Field to sort by", example = "name")
             @RequestParam(required = false) Pair<String, String>[] sortBy,
-
-//            @Parameter(description = "Sort direction (asc/desc)", example = "asc")
-//            @RequestParam(required = false, defaultValue = "asc") String sortDirection,
 
             @Parameter(description = "Exact name match", example = "Alice Johnson")
             @RequestParam(required = false) String name,

@@ -36,7 +36,6 @@ public class GlobalExceptionHandler {
         log.warn("Person not found: {}", e.getMessage());
 
         ErrorDTO error = new ErrorDTO(
-                HttpStatus.NOT_FOUND.value(),
                 "PERSON_NOT_FOUND",
                 e.getMessage(),
                 LocalDateTime.now(),
@@ -127,7 +126,6 @@ public class GlobalExceptionHandler {
         log.warn("Invalid person data: {}", e.getMessage());
 
         ErrorDTO error = new ErrorDTO(
-                HttpStatus.UNPROCESSABLE_ENTITY.value(),
                 "UNPROCESSABLE_ENTITY",
                 e.getMessage(),
                 LocalDateTime.now(),
@@ -177,7 +175,6 @@ public class GlobalExceptionHandler {
         log.warn("Constraint violation: {}", e.getMessage());
 
         ErrorDTO error = new ErrorDTO(
-                HttpStatus.UNPROCESSABLE_ENTITY.value(),
                 "CONSTRAINT_VIOLATION",
                 "Business rule constraint violation: " + e.getMessage(),
                 LocalDateTime.now(),
@@ -220,7 +217,6 @@ public class GlobalExceptionHandler {
         }
 
         ErrorDTO error = new ErrorDTO(
-                status.value(),
                 errorCode,
                 message,
                 LocalDateTime.now(),
@@ -247,7 +243,6 @@ public class GlobalExceptionHandler {
         }
 
         ErrorDTO error = new ErrorDTO(
-                HttpStatus.UNPROCESSABLE_ENTITY.value(),
                 "INVALID_PARAMETER_TYPE",
                 message,
                 LocalDateTime.now(),
@@ -288,7 +283,6 @@ public class GlobalExceptionHandler {
         }
 
         ErrorDTO error = new ErrorDTO(
-                status.value(),
                 errorCode,
                 message,
                 LocalDateTime.now(),
@@ -309,7 +303,6 @@ public class GlobalExceptionHandler {
                 e.getSupportedMethods() != null ? String.join(", ", e.getSupportedMethods()) : "none");
 
         ErrorDTO error = new ErrorDTO(
-                HttpStatus.METHOD_NOT_ALLOWED.value(),
                 "METHOD_NOT_ALLOWED",
                 message,
                 LocalDateTime.now(),
@@ -326,7 +319,6 @@ public class GlobalExceptionHandler {
         log.warn("No handler found: {} {}", e.getHttpMethod(), e.getRequestURL());
 
         ErrorDTO error = new ErrorDTO(
-                HttpStatus.NOT_FOUND.value(),
                 "ENDPOINT_NOT_FOUND",
                 String.format("Endpoint %s %s not found", e.getHttpMethod(), e.getRequestURL()),
                 LocalDateTime.now(),
@@ -343,7 +335,6 @@ public class GlobalExceptionHandler {
         log.warn("Illegal argument: {}", e.getMessage());
 
         ErrorDTO error = new ErrorDTO(
-                HttpStatus.UNPROCESSABLE_ENTITY.value(),
                 "INVALID_ARGUMENT",
                 e.getMessage(),
                 LocalDateTime.now(),
@@ -360,7 +351,6 @@ public class GlobalExceptionHandler {
         log.warn("Missing path variable: {}", e.getVariableName());
 
         ErrorDTO error = new ErrorDTO(
-                HttpStatus.BAD_REQUEST.value(),
                 "MISSING_PATH_VARIABLE",
                 String.format("Missing required path variable: %s", e.getVariableName()),
                 LocalDateTime.now(),
@@ -377,7 +367,6 @@ public class GlobalExceptionHandler {
         log.warn("Missing request parameter: {} of type {}", e.getParameterName(), e.getParameterType());
 
         ErrorDTO error = new ErrorDTO(
-                HttpStatus.BAD_REQUEST.value(),
                 "MISSING_REQUEST_PARAMETER",
                 String.format("Missing required request parameter: %s", e.getParameterName()),
                 LocalDateTime.now(),
@@ -394,7 +383,6 @@ public class GlobalExceptionHandler {
         log.error("Unexpected exception: {}", e.getMessage(), e);
 
         ErrorDTO error = new ErrorDTO(
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "INTERNAL_SERVER_ERROR",
                 "An unexpected error occurred",
                 LocalDateTime.now(),

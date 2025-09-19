@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 @Getter
 @AllArgsConstructor
 public class ErrorDTO {
-    private final int status;
     private final String error;
     private final String message;
 
@@ -18,7 +17,7 @@ public class ErrorDTO {
 
     private final String path;
 
-    public ErrorDTO(int status, String error, String message, LocalDateTime timestamp) {
-        this(status, error, message, timestamp, null);
+    public ErrorDTO(String error, String message, LocalDateTime timestamp) {
+        this(error, message, timestamp, null);
     }
 }
