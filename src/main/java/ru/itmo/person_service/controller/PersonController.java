@@ -3,6 +3,7 @@ package ru.itmo.person_service.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -23,6 +24,7 @@ import ru.itmo.person_service.dto.PersonResponseDTO;
 import ru.itmo.person_service.entity.Person;
 import ru.itmo.person_service.entity.enums.Color;
 import ru.itmo.person_service.entity.enums.Country;
+import ru.itmo.person_service.exception.PersonNotFoundException;
 import ru.itmo.person_service.service.PersonService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -179,9 +181,60 @@ public class PersonController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Person found", content = @Content(mediaType = "application/json",
                     schema = @Schema(implementation = PersonResponseDTO.class))),
-            @ApiResponse(responseCode = "404", description = "Person not found"),
-            @ApiResponse(responseCode = "400", description = "Invalid ID format", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = ErrorDTO.class)))
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Person not found",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorDTO.class),
+                            examples = @ExampleObject(
+                                    name = "Person Not Found",
+                                    description = "No person exists with the specified ID",
+                                    value = """
+                                    {
+                                        "error": "PERSON_NOT_FOUND",
+                                        "message": "Person with ID 999 not found",
+                                        "timestamp": "2025-09-19T09:32:19.479Z",
+                                        "path": "/persons/999"
+                                    }
+                                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid ID format",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorDTO.class),
+                            examples = {
+                                    @ExampleObject(
+                                            name = "Invalid ID - Not a Number",
+                                            description = "ID parameter is not a valid integer",
+                                            value = """
+                                            {
+                                                "error": "INVALID_PARAMETER_TYPE",
+                                                "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/abc"
+                                            }
+                                            """
+                                    ),
+                                    @ExampleObject(
+                                            name = "Invalid ID - Negative Number",
+                                            description = "ID parameter is negative or zero",
+                                            value = """
+                                            {
+                                                "error": "INVALID_ARGUMENT",
+                                                "message": "ID must be a positive number",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/-1"
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            ),
     })
     @GetMapping("/{id}")
     public ResponseEntity<?> getPersonById(
@@ -201,8 +254,6 @@ public class PersonController {
             @ApiResponse(responseCode = "201", description = "Person created successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid person data", content = @Content(mediaType = "application/json",
                     schema = @Schema(implementation = ErrorDTO.class))),
-            @ApiResponse(responseCode = "409", description = "Person already exists", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = ErrorDTO.class)))
     })
     @PostMapping
     public ResponseEntity<PersonResponseDTO> createPerson(
@@ -219,9 +270,60 @@ public class PersonController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Person updated successfully"),
-            @ApiResponse(responseCode = "404", description = "Person not found"),
-            @ApiResponse(responseCode = "400", description = "Invalid person data", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = ErrorDTO.class)))
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Person not found",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorDTO.class),
+                            examples = @ExampleObject(
+                                    name = "Person Not Found",
+                                    description = "No person exists with the specified ID",
+                                    value = """
+                                    {
+                                        "error": "PERSON_NOT_FOUND",
+                                        "message": "Person with ID 999 not found",
+                                        "timestamp": "2025-09-19T09:32:19.479Z",
+                                        "path": "/persons/999"
+                                    }
+                                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid ID format",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorDTO.class),
+                            examples = {
+                                    @ExampleObject(
+                                            name = "Invalid ID - Not a Number",
+                                            description = "ID parameter is not a valid integer",
+                                            value = """
+                                            {
+                                                "error": "INVALID_PARAMETER_TYPE",
+                                                "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/abc"
+                                            }
+                                            """
+                                    ),
+                                    @ExampleObject(
+                                            name = "Invalid ID - Negative Number",
+                                            description = "ID parameter is negative or zero",
+                                            value = """
+                                            {
+                                                "error": "INVALID_ARGUMENT",
+                                                "message": "ID must be a positive number",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/-1"
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            ),
     })
     @PutMapping("/{id}")
     public ResponseEntity<PersonResponseDTO> updatePerson(
@@ -253,9 +355,60 @@ public class PersonController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Person deleted successfully"),
-            @ApiResponse(responseCode = "404", description = "Person not found"),
-            @ApiResponse(responseCode = "400", description = "Invalid ID format", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = ErrorDTO.class)))
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Person not found",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorDTO.class),
+                            examples = @ExampleObject(
+                                    name = "Person Not Found",
+                                    description = "No person exists with the specified ID",
+                                    value = """
+                                    {
+                                        "error": "PERSON_NOT_FOUND",
+                                        "message": "Person with ID 999 not found",
+                                        "timestamp": "2025-09-19T09:32:19.479Z",
+                                        "path": "/persons/999"
+                                    }
+                                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid ID format",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorDTO.class),
+                            examples = {
+                                    @ExampleObject(
+                                            name = "Invalid ID - Not a Number",
+                                            description = "ID parameter is not a valid integer",
+                                            value = """
+                                            {
+                                                "error": "INVALID_PARAMETER_TYPE",
+                                                "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/abc"
+                                            }
+                                            """
+                                    ),
+                                    @ExampleObject(
+                                            name = "Invalid ID - Negative Number",
+                                            description = "ID parameter is negative or zero",
+                                            value = """
+                                            {
+                                                "error": "INVALID_ARGUMENT",
+                                                "message": "ID must be a positive number",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/-1"
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            ),
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePerson(
@@ -294,17 +447,70 @@ public class PersonController {
             description = "Delete one (any) person with the specified hair color"
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Person deleted successfully"),
-            @ApiResponse(responseCode = "404", description = "No person found with specified hair color"),
-            @ApiResponse(responseCode = "400", description = "Invalid hair color", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = ErrorDTO.class)))
+            @ApiResponse(
+                    responseCode = "204",
+                    description = "Person deleted successfully"
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid hair color",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorDTO.class),
+                            examples = @ExampleObject(
+                                    name = "Invalid Hair Color",
+                                    description = "Hair color parameter is invalid",
+                                    value = """
+                                {
+                                    "error": "INVALID_PARAMETER_TYPE",
+                                    "message": "Invalid value 'PURPLE' for parameter 'hairColor'. Expected one of: [GREEN, BLUE, ORANGE, BROWN]",
+                                    "timestamp": "2025-09-19T09:32:19.479Z",
+                                    "path": "/persons/hair-color/PURPLE"
+                                }
+                                """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "No person found with specified hair color",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorDTO.class),
+                            examples = @ExampleObject(
+                                    name = "No Person Found",
+                                    description = "No person exists with the specified hair color",
+                                    value = """
+                                {
+                                    "error": "PERSON_NOT_FOUND",
+                                    "message": "No person found with hair color ORANGE",
+                                    "timestamp": "2025-09-19T09:32:19.479Z",
+                                    "path": "/persons/hair-color/ORANGE"
+                                }
+                                """
+                            )
+                    )
+            )
     })
     @DeleteMapping("/hair-color/{hairColor}")
     public ResponseEntity<Void> deleteByHairColor(
-            @Parameter(description = "Hair color to delete", required = true)
+            @Parameter(
+                    description = "Hair color to delete",
+                    required = true,
+                    schema = @Schema(
+                            type = "string",
+                            allowableValues = {"GREEN", "BLUE", "ORANGE", "BROWN"},
+                            example = "BROWN"
+                    )
+            )
             @PathVariable Color hairColor) {
 
-        personService.deleteByHairColor(hairColor);
+        Optional<Person> deletedPerson = personService.deleteByHairColor(hairColor);
+
+        if (deletedPerson.isEmpty()) {
+            throw new PersonNotFoundException("No person found with hair color " + hairColor);
+        }
+
         return ResponseEntity.noContent().build();
     }
 

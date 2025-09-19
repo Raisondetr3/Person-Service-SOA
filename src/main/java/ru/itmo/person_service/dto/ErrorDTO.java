@@ -1,23 +1,27 @@
 package ru.itmo.person_service.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Getter
+@Schema(description = "Standard error response")
+@RequiredArgsConstructor
 @AllArgsConstructor
 public class ErrorDTO {
-    private final String error;
-    private final String message;
+    @Schema(description = "Error code", example = "VALIDATION_FAILED")
+    String error;
 
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    private final LocalDateTime timestamp;
+    @Schema(description = "Error message", example = "Required fields are missing or empty")
+    String message;
 
-    private final String path;
+    @Schema(description = "Timestamp when error occurred", example = "2025-09-19T09:32:19.479Z")
+    LocalDateTime timestamp;
 
-    public ErrorDTO(String error, String message, LocalDateTime timestamp) {
-        this(error, message, timestamp, null);
-    }
+    @Schema(description = "Request path that caused the error", example = "/persons")
+    String path;
 }
