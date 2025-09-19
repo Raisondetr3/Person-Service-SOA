@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import ru.itmo.person_service.dto.ErrorDTO;
 import ru.itmo.person_service.dto.PersonRequestDTO;
 import ru.itmo.person_service.dto.PersonResponseDTO;
 import ru.itmo.person_service.entity.Person;
@@ -48,9 +49,9 @@ public class PersonController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Successfully retrieved persons"),
             @ApiResponse(responseCode = "400", description = "Invalid pagination or filter parameters", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = String.class))),
+                    schema = @Schema(implementation = ErrorDTO.class))),
             @ApiResponse(responseCode = "422", description = "Invalid filter operator or value format", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = String.class)))
+                    schema = @Schema(implementation = ErrorDTO.class)))
     })
     @GetMapping
     public ResponseEntity<List<PersonResponseDTO>> getAllPersons(
@@ -185,7 +186,7 @@ public class PersonController {
                     schema = @Schema(implementation = PersonResponseDTO.class))),
             @ApiResponse(responseCode = "404", description = "Person not found"),
             @ApiResponse(responseCode = "400", description = "Invalid ID format", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = String.class)))
+                    schema = @Schema(implementation = ErrorDTO.class)))
     })
     @GetMapping("/{id}")
     public ResponseEntity<?> getPersonById(
@@ -204,9 +205,9 @@ public class PersonController {
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Person created successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid person data", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = String.class))),
+                    schema = @Schema(implementation = ErrorDTO.class))),
             @ApiResponse(responseCode = "409", description = "Person already exists", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = String.class)))
+                    schema = @Schema(implementation = ErrorDTO.class)))
     })
     @PostMapping
     public ResponseEntity<PersonResponseDTO> createPerson(
@@ -225,7 +226,7 @@ public class PersonController {
             @ApiResponse(responseCode = "200", description = "Person updated successfully"),
             @ApiResponse(responseCode = "404", description = "Person not found"),
             @ApiResponse(responseCode = "400", description = "Invalid person data", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = String.class)))
+                    schema = @Schema(implementation = ErrorDTO.class)))
     })
     @PutMapping("/{id}")
     public ResponseEntity<PersonResponseDTO> updatePerson(
@@ -259,7 +260,7 @@ public class PersonController {
             @ApiResponse(responseCode = "204", description = "Person deleted successfully"),
             @ApiResponse(responseCode = "404", description = "Person not found"),
             @ApiResponse(responseCode = "400", description = "Invalid ID format", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = String.class)))
+                    schema = @Schema(implementation = ErrorDTO.class)))
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePerson(
@@ -301,7 +302,7 @@ public class PersonController {
             @ApiResponse(responseCode = "204", description = "Person deleted successfully"),
             @ApiResponse(responseCode = "404", description = "No person found with specified hair color"),
             @ApiResponse(responseCode = "400", description = "Invalid hair color", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = String.class)))
+                    schema = @Schema(implementation = ErrorDTO.class)))
     })
     @DeleteMapping("/hair-color/{hairColor}")
     public ResponseEntity<Void> deleteByHairColor(
