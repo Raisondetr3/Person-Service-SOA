@@ -2,6 +2,7 @@ package ru.itmo.person_service.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -24,7 +25,6 @@ import ru.itmo.person_service.dto.PersonResponseDTO;
 import ru.itmo.person_service.entity.Person;
 import ru.itmo.person_service.entity.enums.Color;
 import ru.itmo.person_service.entity.enums.Country;
-import ru.itmo.person_service.exception.PersonNotFoundException;
 import ru.itmo.person_service.service.PersonService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -50,10 +50,14 @@ public class PersonController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Successfully retrieved persons"),
-            @ApiResponse(responseCode = "400", description = "Invalid pagination or filter parameters", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = ErrorDTO.class))),
-            @ApiResponse(responseCode = "422", description = "Invalid filter operator or value format", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = ErrorDTO.class)))
+            @ApiResponse(responseCode = "400", description = "Invalid pagination or filter parameters",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorDTO.class))
+            ),
+            @ApiResponse(responseCode = "422", description = "Invalid filter operator or value format",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorDTO.class))
+            )
     })
     @GetMapping
     public ResponseEntity<List<PersonResponseDTO>> getAllPersons(
@@ -63,92 +67,11 @@ public class PersonController {
             @Parameter(description = "Page size", example = "10")
             @RequestParam(defaultValue = "10") int size,
 
-            @Parameter(description = "Field to sort by", example = "name")
-            @RequestParam(required = false) Pair<String, String>[] sortBy,
+            @Parameter(description = "Field to sort by", example = "name", array = @ArraySchema(schema = @Schema(type = "string", example = "name")))
+            @RequestParam(required = false) String[] sortBy,
 
-            @Parameter(description = "Exact name match", example = "Alice Johnson")
-            @RequestParam(required = false) String name,
-
-            @Parameter(description = "Name contains substring (case insensitive)", example = "Alice")
-            @RequestParam(name = "name[like]", required = false) String nameContains,
-
-            @Parameter(description = "Name not equal to", example = "Bob Smith")
-            @RequestParam(name = "name[ne]", required = false) String nameNotEqual,
-
-            @Parameter(description = "Exact height", example = "175")
-            @RequestParam(required = false) Long height,
-
-            @Parameter(description = "Height greater than", example = "170")
-            @RequestParam(name = "height[gt]", required = false) Long heightGreaterThan,
-
-            @Parameter(description = "Height greater than or equal", example = "175")
-            @RequestParam(name = "height[gte]", required = false) Long heightGreaterOrEqual,
-
-            @Parameter(description = "Height less than", example = "180")
-            @RequestParam(name = "height[lt]", required = false) Long heightLessThan,
-
-            @Parameter(description = "Height less than or equal", example = "175")
-            @RequestParam(name = "height[lte]", required = false) Long heightLessOrEqual,
-
-            @Parameter(description = "Exact weight", example = "65.5")
-            @RequestParam(required = false) Float weight,
-
-            @Parameter(description = "Weight greater than", example = "60.0")
-            @RequestParam(name = "weight[gt]", required = false) Float weightGreaterThan,
-
-            @Parameter(description = "Weight greater than or equal", example = "65.0")
-            @RequestParam(name = "weight[gte]", required = false) Float weightGreaterOrEqual,
-
-            @Parameter(description = "Weight less than", example = "70.0")
-            @RequestParam(name = "weight[lt]", required = false) Float weightLessThan,
-
-            @Parameter(description = "Weight less than or equal", example = "65.0")
-            @RequestParam(name = "weight[lte]", required = false) Float weightLessOrEqual,
-
-            @Parameter(description = "Exact hair color match", example = "BROWN")
-            @RequestParam(required = false) Color hairColor,
-
-            @Parameter(description = "Hair color not equal to", example = "BROWN")
-            @RequestParam(name = "hairColor[ne]", required = false) Color hairColorNotEqual,
-
-            @Parameter(description = "Exact eye color match", example = "BLUE")
-            @RequestParam(required = false) Color eyeColor,
-
-            @Parameter(description = "Eye color not equal to", example = "BLUE")
-            @RequestParam(name = "eyeColor[ne]", required = false) Color eyeColorNotEqual,
-
-            @Parameter(description = "Exact nationality match", example = "FRANCE")
-            @RequestParam(required = false) Country nationality,
-
-            @Parameter(description = "Nationality not equal to", example = "FRANCE")
-            @RequestParam(name = "nationality[ne]", required = false) Country nationalityNotEqual,
-
-            @Parameter(description = "Nationality greater than (alphabetical)", example = "FRANCE")
-            @RequestParam(name = "nationality[gt]", required = false) Country nationalityGreaterThan,
-
-            @Parameter(description = "Exact coordinates X", example = "10")
-            @RequestParam(required = false) Long coordinatesX,
-
-            @Parameter(description = "Coordinates X greater than", example = "0")
-            @RequestParam(name = "coordinates.x[gt]", required = false) Long coordinatesXGreaterThan,
-
-            @Parameter(description = "Coordinates X less than", example = "50")
-            @RequestParam(name = "coordinates.x[lt]", required = false) Long coordinatesXLessThan,
-
-            @Parameter(description = "Exact coordinates Y", example = "20")
-            @RequestParam(required = false) Long coordinatesY,
-
-            @Parameter(description = "Coordinates Y greater than", example = "0")
-            @RequestParam(name = "coordinates.y[gt]", required = false) Long coordinatesYGreaterThan,
-
-            @Parameter(description = "Coordinates Y less than", example = "50")
-            @RequestParam(name = "coordinates.y[lt]", required = false) Long coordinatesYLessThan,
-
-            @Parameter(description = "Exact location name", example = "Paris")
-            @RequestParam(required = false) String locationName,
-
-            @Parameter(description = "Location name contains substring", example = "Center")
-            @RequestParam(name = "location.name[like]", required = false) String locationNameContains,
+            @Parameter(description = "Filter fields", array = @ArraySchema(schema = @Schema(type = "string", example = "id[eq]=1")))
+            @RequestParam(required = false) String[] filter,
 
             HttpServletRequest request) {
 
@@ -161,10 +84,10 @@ public class PersonController {
 
         Sort sort = Sort.unsorted();
         if (sortBy != null && !Arrays.stream(sortBy).toList().isEmpty()) {
-            Sort.Direction direction = sortBy[0].component2().equalsIgnoreCase("desc")
+            Sort.Direction direction = sortBy[0].equalsIgnoreCase("desc")
                     ? Sort.Direction.DESC
                     : Sort.Direction.ASC;
-            sort = Sort.by(direction, sortBy[0].component1());
+            sort = Sort.by(direction, sortBy[0]);
         }
 
         Pageable pageable = PageRequest.of(page, size, sort);
@@ -191,13 +114,13 @@ public class PersonController {
                                     name = "Person Not Found",
                                     description = "No person exists with the specified ID",
                                     value = """
-                                    {
-                                        "error": "PERSON_NOT_FOUND",
-                                        "message": "Person with ID 999 not found",
-                                        "timestamp": "2025-09-19T09:32:19.479Z",
-                                        "path": "/persons/999"
-                                    }
-                                    """
+                                {
+                                    "error": "PERSON_NOT_FOUND",
+                                    "message": "Person with ID 999 not found",
+                                    "timestamp": "2025-09-19T09:32:19.479Z",
+                                    "path": "/persons/999"
+                                }
+                                """
                             )
                     )
             ),
@@ -212,25 +135,25 @@ public class PersonController {
                                             name = "Invalid ID - Not a Number",
                                             description = "ID parameter is not a valid integer",
                                             value = """
-                                            {
-                                                "error": "INVALID_PARAMETER_TYPE",
-                                                "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
-                                                "timestamp": "2025-09-19T09:32:19.479Z",
-                                                "path": "/persons/abc"
-                                            }
-                                            """
+                                        {
+                                            "error": "INVALID_PARAMETER_TYPE",
+                                            "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
+                                            "timestamp": "2025-09-19T09:32:19.479Z",
+                                            "path": "/persons/abc"
+                                        }
+                                        """
                                     ),
                                     @ExampleObject(
                                             name = "Invalid ID - Negative Number",
                                             description = "ID parameter is negative or zero",
                                             value = """
-                                            {
-                                                "error": "INVALID_ARGUMENT",
-                                                "message": "ID must be a positive number",
-                                                "timestamp": "2025-09-19T09:32:19.479Z",
-                                                "path": "/persons/-1"
-                                            }
-                                            """
+                                        {
+                                            "error": "INVALID_ARGUMENT",
+                                            "message": "ID must be a positive number",
+                                            "timestamp": "2025-09-19T09:32:19.479Z",
+                                            "path": "/persons/-1"
+                                        }
+                                        """
                                     )
                             }
                     )
@@ -246,14 +169,47 @@ public class PersonController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+
     @Operation(
             summary = "Create new person",
             description = "Add a new person to the collection"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Person created successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid person data", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = ErrorDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid person data",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorDTO.class),
+                            examples = {
+                                    @ExampleObject(
+                                            name = "Invalid ID - Not a Number",
+                                            description = "ID parameter is not a valid integer",
+                                            value = """
+                                        {
+                                            "error": "INVALID_PARAMETER_TYPE",
+                                            "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
+                                            "timestamp": "2025-09-19T09:32:19.479Z",
+                                            "path": "/persons/abc"
+                                        }
+                                        """
+                                    ),
+                                    @ExampleObject(
+                                            name = "Invalid ID - Negative Number",
+                                            description = "ID parameter is negative or zero",
+                                            value = """
+                                        {
+                                            "error": "INVALID_ARGUMENT",
+                                            "message": "ID must be a positive number",
+                                            "timestamp": "2025-09-19T09:32:19.479Z",
+                                            "path": "/persons/-1"
+                                        }
+                                        """
+                                    )
+                            }
+                    )
+            ),
+            @ApiResponse(responseCode = "409", description = "Person already exists", content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorDTO.class)))
     })
     @PostMapping
     public ResponseEntity<PersonResponseDTO> createPerson(
@@ -280,13 +236,13 @@ public class PersonController {
                                     name = "Person Not Found",
                                     description = "No person exists with the specified ID",
                                     value = """
-                                    {
-                                        "error": "PERSON_NOT_FOUND",
-                                        "message": "Person with ID 999 not found",
-                                        "timestamp": "2025-09-19T09:32:19.479Z",
-                                        "path": "/persons/999"
-                                    }
-                                    """
+                                {
+                                    "error": "PERSON_NOT_FOUND",
+                                    "message": "Person with ID 999 not found",
+                                    "timestamp": "2025-09-19T09:32:19.479Z",
+                                    "path": "/persons/999"
+                                }
+                                """
                             )
                     )
             ),
@@ -301,25 +257,25 @@ public class PersonController {
                                             name = "Invalid ID - Not a Number",
                                             description = "ID parameter is not a valid integer",
                                             value = """
-                                            {
-                                                "error": "INVALID_PARAMETER_TYPE",
-                                                "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
-                                                "timestamp": "2025-09-19T09:32:19.479Z",
-                                                "path": "/persons/abc"
-                                            }
-                                            """
+                                        {
+                                            "error": "INVALID_PARAMETER_TYPE",
+                                            "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
+                                            "timestamp": "2025-09-19T09:32:19.479Z",
+                                            "path": "/persons/abc"
+                                        }
+                                        """
                                     ),
                                     @ExampleObject(
                                             name = "Invalid ID - Negative Number",
                                             description = "ID parameter is negative or zero",
                                             value = """
-                                            {
-                                                "error": "INVALID_ARGUMENT",
-                                                "message": "ID must be a positive number",
-                                                "timestamp": "2025-09-19T09:32:19.479Z",
-                                                "path": "/persons/-1"
-                                            }
-                                            """
+                                        {
+                                            "error": "INVALID_ARGUMENT",
+                                            "message": "ID must be a positive number",
+                                            "timestamp": "2025-09-19T09:32:19.479Z",
+                                            "path": "/persons/-1"
+                                        }
+                                        """
                                     )
                             }
                     )
@@ -365,13 +321,13 @@ public class PersonController {
                                     name = "Person Not Found",
                                     description = "No person exists with the specified ID",
                                     value = """
-                                    {
-                                        "error": "PERSON_NOT_FOUND",
-                                        "message": "Person with ID 999 not found",
-                                        "timestamp": "2025-09-19T09:32:19.479Z",
-                                        "path": "/persons/999"
-                                    }
-                                    """
+                                {
+                                    "error": "PERSON_NOT_FOUND",
+                                    "message": "Person with ID 999 not found",
+                                    "timestamp": "2025-09-19T09:32:19.479Z",
+                                    "path": "/persons/999"
+                                }
+                                """
                             )
                     )
             ),
@@ -386,25 +342,25 @@ public class PersonController {
                                             name = "Invalid ID - Not a Number",
                                             description = "ID parameter is not a valid integer",
                                             value = """
-                                            {
-                                                "error": "INVALID_PARAMETER_TYPE",
-                                                "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
-                                                "timestamp": "2025-09-19T09:32:19.479Z",
-                                                "path": "/persons/abc"
-                                            }
-                                            """
+                                        {
+                                            "error": "INVALID_PARAMETER_TYPE",
+                                            "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
+                                            "timestamp": "2025-09-19T09:32:19.479Z",
+                                            "path": "/persons/abc"
+                                        }
+                                        """
                                     ),
                                     @ExampleObject(
                                             name = "Invalid ID - Negative Number",
                                             description = "ID parameter is negative or zero",
                                             value = """
-                                            {
-                                                "error": "INVALID_ARGUMENT",
-                                                "message": "ID must be a positive number",
-                                                "timestamp": "2025-09-19T09:32:19.479Z",
-                                                "path": "/persons/-1"
-                                            }
-                                            """
+                                        {
+                                            "error": "INVALID_ARGUMENT",
+                                            "message": "ID must be a positive number",
+                                            "timestamp": "2025-09-19T09:32:19.479Z",
+                                            "path": "/persons/-1"
+                                        }
+                                        """
                                     )
                             }
                     )
@@ -461,13 +417,13 @@ public class PersonController {
                                     name = "Invalid Hair Color",
                                     description = "Hair color parameter is invalid",
                                     value = """
-                                {
-                                    "error": "INVALID_PARAMETER_TYPE",
-                                    "message": "Invalid value 'PURPLE' for parameter 'hairColor'. Expected one of: [GREEN, BLUE, ORANGE, BROWN]",
-                                    "timestamp": "2025-09-19T09:32:19.479Z",
-                                    "path": "/persons/hair-color/PURPLE"
-                                }
-                                """
+                            {
+                                "error": "INVALID_PARAMETER_TYPE",
+                                "message": "Invalid value 'PURPLE' for parameter 'hairColor'. Expected one of: [GREEN, BLUE, ORANGE, BROWN]",
+                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                "path": "/persons/hair-color/PURPLE"
+                            }
+                            """
                             )
                     )
             ),
@@ -481,36 +437,23 @@ public class PersonController {
                                     name = "No Person Found",
                                     description = "No person exists with the specified hair color",
                                     value = """
-                                {
-                                    "error": "PERSON_NOT_FOUND",
-                                    "message": "No person found with hair color ORANGE",
-                                    "timestamp": "2025-09-19T09:32:19.479Z",
-                                    "path": "/persons/hair-color/ORANGE"
-                                }
-                                """
+                            {
+                                "error": "PERSON_NOT_FOUND",
+                                "message": "No person found with hair color ORANGE",
+                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                "path": "/persons/hair-color/ORANGE"
+                            }
+                            """
                             )
                     )
             )
     })
     @DeleteMapping("/hair-color/{hairColor}")
     public ResponseEntity<Void> deleteByHairColor(
-            @Parameter(
-                    description = "Hair color to delete",
-                    required = true,
-                    schema = @Schema(
-                            type = "string",
-                            allowableValues = {"GREEN", "BLUE", "ORANGE", "BROWN"},
-                            example = "BROWN"
-                    )
-            )
+            @Parameter(description = "Hair color to delete", required = true)
             @PathVariable Color hairColor) {
 
-        Optional<Person> deletedPerson = personService.deleteByHairColor(hairColor);
-
-        if (deletedPerson.isEmpty()) {
-            throw new PersonNotFoundException("No person found with hair color " + hairColor);
-        }
-
+        personService.deleteByHairColor(hairColor);
         return ResponseEntity.noContent().build();
     }
 
