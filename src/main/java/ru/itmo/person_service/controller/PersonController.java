@@ -2,11 +2,14 @@ package ru.itmo.person_service.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import kotlin.Pair;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -26,10 +29,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -47,8 +47,10 @@ public class PersonController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Successfully retrieved persons"),
-            @ApiResponse(responseCode = "400", description = "Invalid pagination or filter parameters"),
-            @ApiResponse(responseCode = "422", description = "Invalid filter operator or value format")
+            @ApiResponse(responseCode = "400", description = "Invalid pagination or filter parameters", content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = String.class))),
+            @ApiResponse(responseCode = "422", description = "Invalid filter operator or value format", content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = String.class)))
     })
     @GetMapping
     public ResponseEntity<List<PersonResponseDTO>> getAllPersons(
@@ -58,11 +60,13 @@ public class PersonController {
             @Parameter(description = "Page size", example = "10")
             @RequestParam(defaultValue = "10") int size,
 
+//            @Parameter(description = "Field to sort by", example = "name")
+//            @RequestParam(required = false) List<String> sortBy,
             @Parameter(description = "Field to sort by", example = "name")
-            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) Pair<String, String>[] sortBy,
 
-            @Parameter(description = "Sort direction (asc/desc)", example = "asc")
-            @RequestParam(required = false, defaultValue = "asc") String sortDirection,
+//            @Parameter(description = "Sort direction (asc/desc)", example = "asc")
+//            @RequestParam(required = false, defaultValue = "asc") String sortDirection,
 
             @Parameter(description = "Exact name match", example = "Alice Johnson")
             @RequestParam(required = false) String name,
@@ -158,11 +162,11 @@ public class PersonController {
                 ));
 
         Sort sort = Sort.unsorted();
-        if (sortBy != null && !sortBy.isEmpty()) {
-            Sort.Direction direction = sortDirection.equalsIgnoreCase("desc")
+        if (sortBy != null && !Arrays.stream(sortBy).toList().isEmpty()) {
+            Sort.Direction direction = sortBy[0].component2().equalsIgnoreCase("desc")
                     ? Sort.Direction.DESC
                     : Sort.Direction.ASC;
-            sort = Sort.by(direction, sortBy);
+            sort = Sort.by(direction, sortBy[0].component1());
         }
 
         Pageable pageable = PageRequest.of(page, size, sort);
@@ -177,15 +181,17 @@ public class PersonController {
             description = "Retrieve a single person by their unique identifier"
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Person found"),
+            @ApiResponse(responseCode = "200", description = "Person found", content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = PersonResponseDTO.class))),
             @ApiResponse(responseCode = "404", description = "Person not found"),
-            @ApiResponse(responseCode = "400", description = "Invalid ID format")
+            @ApiResponse(responseCode = "400", description = "Invalid ID format", content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = String.class)))
     })
     @GetMapping("/{id}")
-    public ResponseEntity<PersonResponseDTO> getPersonById(
+    public ResponseEntity<?> getPersonById(
             @Parameter(description = "Person ID", required = true)
             @PathVariable Integer id) {
-
+        if (id <= 0) return ResponseEntity.badRequest().body("bad id");
         Optional<Person> person = personService.findById(id);
         return person.map(p -> ResponseEntity.ok(PersonResponseDTO.create(p)))
                 .orElse(ResponseEntity.notFound().build());
@@ -197,8 +203,10 @@ public class PersonController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Person created successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid person data"),
-            @ApiResponse(responseCode = "409", description = "Person already exists")
+            @ApiResponse(responseCode = "400", description = "Invalid person data", content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = String.class))),
+            @ApiResponse(responseCode = "409", description = "Person already exists", content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = String.class)))
     })
     @PostMapping
     public ResponseEntity<PersonResponseDTO> createPerson(
@@ -216,7 +224,8 @@ public class PersonController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Person updated successfully"),
             @ApiResponse(responseCode = "404", description = "Person not found"),
-            @ApiResponse(responseCode = "400", description = "Invalid person data")
+            @ApiResponse(responseCode = "400", description = "Invalid person data", content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = String.class)))
     })
     @PutMapping("/{id}")
     public ResponseEntity<PersonResponseDTO> updatePerson(
@@ -249,7 +258,8 @@ public class PersonController {
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Person deleted successfully"),
             @ApiResponse(responseCode = "404", description = "Person not found"),
-            @ApiResponse(responseCode = "400", description = "Invalid ID format")
+            @ApiResponse(responseCode = "400", description = "Invalid ID format", content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = String.class)))
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePerson(
@@ -290,7 +300,8 @@ public class PersonController {
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Person deleted successfully"),
             @ApiResponse(responseCode = "404", description = "No person found with specified hair color"),
-            @ApiResponse(responseCode = "400", description = "Invalid hair color")
+            @ApiResponse(responseCode = "400", description = "Invalid hair color", content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = String.class)))
     })
     @DeleteMapping("/hair-color/{hairColor}")
     public ResponseEntity<Void> deleteByHairColor(
@@ -322,7 +333,8 @@ public class PersonController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Persons found"),
-            @ApiResponse(responseCode = "400", description = "Invalid nationality")
+            @ApiResponse(responseCode = "400", description = "Invalid nationality", content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = String.class)))
     })
     @GetMapping("/nationality-less-than/{nationality}")
     public ResponseEntity<List<PersonResponseDTO>> getPersonsByNationalityLessThan(
