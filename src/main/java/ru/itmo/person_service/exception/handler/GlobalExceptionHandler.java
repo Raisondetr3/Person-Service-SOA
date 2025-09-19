@@ -17,6 +17,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.NoHandlerFoundException;
 import ru.itmo.person_service.dto.ErrorDTO;
 import ru.itmo.person_service.exception.InvalidPersonDataException;
+import ru.itmo.person_service.exception.InvalidRequestParameterException;
 import ru.itmo.person_service.exception.PersonNotFoundException;
 import ru.itmo.person_service.exception.PersonValidationException;
 
@@ -45,19 +46,43 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
 
+    @ExceptionHandler(InvalidRequestParameterException.class)
+    public ResponseEntity<ErrorDTO> handleInvalidRequestParameter(
+            InvalidRequestParameterException e, HttpServletRequest request) {
+
+        log.warn("Invalid request parameter: {} = {}", e.getParameterName(), e.getParameterValue());
+
+        ErrorDTO error = new ErrorDTO(
+                "INVALID_REQUEST_PARAMETER",
+                e.getMessage(),
+                LocalDateTime.now(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
     @ExceptionHandler(PersonValidationException.class)
     public ResponseEntity<Map<String, Object>> handlePersonValidation(
             PersonValidationException e, HttpServletRequest request) {
 
         log.warn("Person validation failed: {}", e.getErrors());
 
-        HttpStatus status = determineValidationStatus(e);
-        String errorCode = determineValidationErrorCode(e);
+        HttpStatus status = e.isUrlParameterError()
+                ? HttpStatus.BAD_REQUEST
+                : HttpStatus.UNPROCESSABLE_ENTITY;
+
+        String errorCode = e.isUrlParameterError()
+                ? "INVALID_REQUEST_PARAMETER"
+                : "VALIDATION_FAILED";
+
+        String message = e.isUrlParameterError()
+                ? "Invalid request parameter"
+                : "Request body validation failed";
 
         Map<String, Object> response = new HashMap<>();
-        response.put("status", status.value());
         response.put("error", errorCode);
-        response.put("message", determineValidationMessage(e));
+        response.put("message", e.getMessage() != null ? e.getMessage() : message);
 
         if (e.getErrors() != null) {
             response.put("errors", e.getErrors());
@@ -146,26 +171,14 @@ public class GlobalExceptionHandler {
 
         log.warn("Validation errors: {}", errors);
 
-        boolean hasRequiredFieldErrors = errors.values().stream()
-                .anyMatch(msg -> msg.toLowerCase().contains("must not be null") ||
-                        msg.toLowerCase().contains("must not be blank") ||
-                        msg.toLowerCase().contains("is required"));
-
-        HttpStatus status = hasRequiredFieldErrors ?
-                HttpStatus.BAD_REQUEST :
-                HttpStatus.UNPROCESSABLE_ENTITY;
-
         Map<String, Object> response = new HashMap<>();
-        response.put("status", status.value());
-        response.put("error", hasRequiredFieldErrors ? "MISSING_REQUIRED_FIELDS" : "VALIDATION_FAILED");
-        response.put("message", hasRequiredFieldErrors ?
-                "Required fields are missing" :
-                "Request validation failed");
+        response.put("error", "VALIDATION_FAILED");
+        response.put("message", "Request body validation failed");
         response.put("errors", errors);
         response.put("timestamp", LocalDateTime.now());
         response.put("path", request.getRequestURI());
 
-        return ResponseEntity.status(status).body(response);
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(response);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
@@ -249,7 +262,8 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
 
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(error);
+        // Возвращаем 400 для ошибок параметров URL
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

@@ -15,6 +15,7 @@ import ru.itmo.person_service.entity.Location;
 import ru.itmo.person_service.entity.enums.Color;
 import ru.itmo.person_service.entity.enums.Country;
 import ru.itmo.person_service.exception.InvalidPersonDataException;
+import ru.itmo.person_service.exception.InvalidRequestParameterException;
 import ru.itmo.person_service.exception.PersonNotFoundException;
 import ru.itmo.person_service.exception.PersonValidationException;
 import ru.itmo.person_service.repo.PersonRepository;
@@ -304,6 +305,37 @@ public class PersonService {
         } catch (DataIntegrityViolationException e) {
             log.error("Data integrity violation while saving person: {}", e.getMessage());
 
+            if (e.getMessage().contains("not-null constraint") || e.getMessage().contains("null value")) {
+                throw new PersonValidationException("Required fields are missing or invalid");
+            } else if (e.getMessage().contains("foreign key constraint")) {
+                throw new PersonValidationException("Referenced entity does not exist");
+            }
+
+            throw new InvalidPersonDataException("Data integrity violation: " + extractUserFriendlyMessage(e));
+        } catch (Exception e) {
+            log.error("Unexpected error while saving person: {}", e.getMessage(), e);
+            throw new InvalidPersonDataException("Unable to save person: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    public Person update(Integer id, Person personData) {
+        validateId(id);
+
+        Person existingPerson = personRepository.findById(id)
+                .orElseThrow(() -> new PersonNotFoundException(id));
+
+        validatePerson(personData);
+
+        personData.setId(id);
+        personData.setCreationDate(existingPerson.getCreationDate());
+
+        try {
+            log.info("Updating person with ID {}: {}", id, personData.getName());
+            return personRepository.save(personData);
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation while updating person: {}", e.getMessage());
+
             if (e.getMessage().contains("duplicate") || e.getMessage().contains("unique")) {
                 throw new PersonValidationException("Person with these attributes already exists");
             } else if (e.getMessage().contains("not-null constraint") || e.getMessage().contains("null value")) {
@@ -314,8 +346,8 @@ public class PersonService {
 
             throw new InvalidPersonDataException("Data integrity violation: " + extractUserFriendlyMessage(e));
         } catch (Exception e) {
-            log.error("Unexpected error while saving person: {}", e.getMessage(), e);
-            throw new InvalidPersonDataException("Unable to save person: " + e.getMessage());
+            log.error("Unexpected error while updating person: {}", e.getMessage(), e);
+            throw new InvalidPersonDataException("Unable to update person: " + e.getMessage());
         }
     }
 
@@ -435,10 +467,13 @@ public class PersonService {
 
     private void validateId(Integer id) {
         if (id == null || id <= 0) {
-            throw new PersonValidationException("id", "ID must be a positive number");
+            throw new PersonValidationException(
+                    "id",
+                    "ID must be a positive number",
+                    PersonValidationException.ValidationSource.URL_PARAMETER
+            );
         }
     }
-
     private void validatePerson(Person person) {
         if (person == null) {
             throw new InvalidPersonDataException("Person cannot be null");
