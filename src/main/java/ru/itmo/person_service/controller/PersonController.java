@@ -9,7 +9,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,48 +46,44 @@ public class PersonController {
     @Operation(
             summary = "Get all persons with advanced filtering, sorting and pagination",
             description = """
-                    Retrieve paginated list of persons with advanced filtering capabilities.
-                    
-                    ## Filtering
-                    Filters can be applied using the format: `fieldName[operator]=value`
-                    
-                    ### Available Operators:
-                    - `eq` - Equal (default if no operator specified)
-                    - `ne` - Not equal
-                    - `gt` - Greater than
-                    - `gte` - Greater than or equal
-                    - `lt` - Less than
-                    - `lte` - Less than or equal
-                    - `like` - Contains substring (case-insensitive)
-                    
-                    ### Supported Fields:
-                    - `id` - Person ID (Integer)
-                    - `name` - Person name (String)
-                    - `coordinates.x` - X coordinate (Double, -180 to 180)
-                    - `coordinates.y` - Y coordinate (Double, -90 to 90)
-                    - `creationDate` - Creation date (ISO DateTime)
-                    - `height` - Height in cm (Long, optional)
-                    - `weight` - Weight in kg (Float)
-                    - `hairColor` - Hair color (Enum: GREEN, BLUE, ORANGE, BROWN)
-                    - `eyeColor` - Eye color (Enum: GREEN, BLUE, ORANGE, BROWN)
-                    - `nationality` - Nationality (Enum: SPAIN, INDIA, VATICAN, SOUTH_KOREA, JAPAN)
-                    - `location.x` - Location X coordinate (Float, optional)
-                    - `location.y` - Location Y coordinate (Long, optional)
-                    - `location.z` - Location Z coordinate (Double, optional)
-                    - `location.name` - Location name (String, optional)
-                    
-                    ### Filter Examples:
-                    - `?name[like]=John` - Find persons whose name contains "John"
-                    - `?weight[gt]=70` - Find persons heavier than 70 kg
-                    - `?hairColor[eq]=BLUE` - Find persons with blue hair
-                    - `?coordinates.x[gte]=-50&coordinates.x[lte]=50` - Find persons with X between -50 and 50
-                    - `?creationDate[gt]=2024-01-01T00:00:00` - Find persons created after Jan 1, 2024
-                    - `?nationality[ne]=SPAIN` - Find persons who are not from Spain
-                    
-                    ### Multiple Filters:
-                    Filters can be combined and will be applied with AND logic.
-                    Example: `?name[like]=John&weight[gt]=70&hairColor[eq]=BLUE`
-                    """
+        Retrieve a paginated list of persons with support for advanced filtering, sorting, and pagination.
+
+        ## Filtering
+        Use the `filter` parameter to apply conditions. Each filter is a string in the format:
+        `fieldName[operator]=value`
+
+        ### Available Operators:
+        - `eq` – Equal (default if no operator specified)
+        - `ne` – Not equal
+        - `gt` – Greater than
+        - `gte` – Greater than or equal
+        - `lt` – Less than
+        - `lte` – Less than or equal
+        - `like` – Contains substring (case-insensitive)
+
+        ### Supported Fields:
+        - `id` (Integer)
+        - `name` (String)
+        - `coordinates.x`, `coordinates.y` (Double)
+        - `creationDate` (ISO DateTime)
+        - `height` (Long, optional)
+        - `weight` (Float)
+        - `hairColor`, `eyeColor` (Enum: GREEN, BLUE, ORANGE, BROWN)
+        - `nationality` (Enum: SPAIN, INDIA, VATICAN, SOUTH_KOREA, JAPAN)
+        - `location.x` (Float, optional), `location.y` (Long, optional), `location.z` (Double, optional), `location.name` (String, optional)
+
+        ### Examples:
+        - `filter=name[like]=John`
+        - `filter=weight[gt]=70`
+        - `filter=hairColor=BLUE` (eq is default)
+        - `filter=coordinates.x[gte]=-50&filter=coordinates.x[lte]=50`
+
+        ## Sorting
+        Use `sortBy=name` for ascending or `sortBy=-weight` for descending. Multiple sort fields allowed.
+
+        ## Pagination
+        Zero-based `page` and `size` control the result window.
+        """
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Successfully retrieved persons"),
@@ -98,13 +93,13 @@ public class PersonController {
                             examples = @ExampleObject(
                                     name = "Invalid Parameter",
                                     value = """
-                                    {
-                                        "error": "INVALID_REQUEST_PARAMETER",
-                                        "message": "Page number must be non-negative",
-                                        "timestamp": "2025-09-19T09:32:19.479Z",
-                                        "path": "/persons"
-                                    }
-                                    """
+                                            {
+                                                "error": "INVALID_REQUEST_PARAMETER",
+                                                "message": "Page number must be non-negative",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons"
+                                            }
+                                            """
                             ))
             )
     })
@@ -116,36 +111,68 @@ public class PersonController {
             @Parameter(description = "Page size", example = "10")
             @RequestParam(defaultValue = "10") int size,
 
-            @Parameter(description = "Field to sort by (e.g., 'name', 'weight', 'creationDate')",
+            @Parameter(
+                    description = "Field(s) to sort by (e.g., 'name', '-weight', 'creationDate'). " +
+                            "Prefix with '-' for descending order. Multiple fields supported.",
                     example = "name",
-                    array = @ArraySchema(schema = @Schema(type = "string", example = "name")))
+                    array = @ArraySchema(schema = @Schema(type = "string", example = "name"))
+            )
             @RequestParam(required = false) String[] sortBy,
 
-            @Parameter(hidden = true)
-            @RequestParam(required = false) String[] filter,
+            @Parameter(
+                    description = "Filter conditions in format: fieldName[operator]=value",
+                    array = @ArraySchema(schema = @Schema(type = "string", example = "name[like]=John"))
+            )
+            @RequestParam(required = false) String[] filter) {
 
-            HttpServletRequest request) {
-
-        Map<String, String> allParams = request.getParameterMap().entrySet().stream()
-                .filter(entry -> entry.getValue().length > 0)
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> entry.getValue()[0]
-                ));
-
-        Sort sort = Sort.unsorted();
-        if (sortBy != null && !Arrays.stream(sortBy).toList().isEmpty()) {
-            Sort.Direction direction = sortBy[0].equalsIgnoreCase("desc")
-                    ? Sort.Direction.DESC
-                    : Sort.Direction.ASC;
-            sort = Sort.by(direction, sortBy[0]);
-        }
+        Sort sort = buildSort(sortBy);
 
         Pageable pageable = PageRequest.of(page, size, sort);
-        Page<Person> personPage = personService.findAllWithFilters(allParams, pageable);
-        Page<PersonResponseDTO> personDtoPage = personPage.map(PersonResponseDTO::create);
 
-        return ResponseEntity.ok(personDtoPage.stream().toList());
+        Map<String, String> filterParams = parseFilters(filter);
+
+        Page<Person> personPage = personService.findAllWithFilters(filterParams, pageable);
+        List<PersonResponseDTO> dtoList = personPage.getContent().stream()
+                .map(PersonResponseDTO::create)
+                .toList();
+
+        return ResponseEntity.ok(dtoList);
+    }
+
+    private Sort buildSort(String[] sortBy) {
+        if (sortBy == null || sortBy.length == 0) {
+            return Sort.unsorted();
+        }
+        List<Sort.Order> orders = new ArrayList<>();
+        for (String field : sortBy) {
+            if (field == null || field.isBlank()) continue;
+            field = field.trim();
+            if (field.startsWith("-")) {
+                String fieldName = field.substring(1);
+                orders.add(new Sort.Order(Sort.Direction.DESC, fieldName));
+            } else {
+                orders.add(new Sort.Order(Sort.Direction.ASC, field));
+            }
+        }
+        return orders.isEmpty() ? Sort.unsorted() : Sort.by(orders);
+    }
+
+    private Map<String, String> parseFilters(String[] filter) {
+        Map<String, String> filters = new HashMap<>();
+        if (filter == null) {
+            return filters;
+        }
+        for (String expr : filter) {
+            if (expr == null || expr.isEmpty()) continue;
+
+            int eqIndex = expr.indexOf('=');
+            if (eqIndex <= 0) continue; // ключ должен быть до '=', и не пустой
+
+            String key = expr.substring(0, eqIndex);
+            String value = expr.substring(eqIndex + 1);
+            filters.put(key, value);
+        }
+        return filters;
     }
 
     @Operation(
@@ -162,13 +189,13 @@ public class PersonController {
                             examples = @ExampleObject(
                                     name = "Person Not Found",
                                     value = """
-                                    {
-                                        "error": "PERSON_NOT_FOUND",
-                                        "message": "Person with ID 999 not found",
-                                        "timestamp": "2025-09-19T09:32:19.479Z",
-                                        "path": "/persons/999"
-                                    }
-                                    """
+                                            {
+                                                "error": "PERSON_NOT_FOUND",
+                                                "message": "Person with ID 999 not found",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/999"
+                                            }
+                                            """
                             ))
             ),
             @ApiResponse(responseCode = "400", description = "Invalid ID parameter",
@@ -179,25 +206,25 @@ public class PersonController {
                                             name = "Invalid ID Type",
                                             description = "ID is not a valid integer",
                                             value = """
-                                            {
-                                                "error": "INVALID_PARAMETER_TYPE",
-                                                "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
-                                                "timestamp": "2025-09-19T09:32:19.479Z",
-                                                "path": "/persons/abc"
-                                            }
-                                            """
+                                                    {
+                                                        "error": "INVALID_PARAMETER_TYPE",
+                                                        "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
+                                                        "timestamp": "2025-09-19T09:32:19.479Z",
+                                                        "path": "/persons/abc"
+                                                    }
+                                                    """
                                     ),
                                     @ExampleObject(
                                             name = "Invalid ID Value",
                                             description = "ID is negative or zero",
                                             value = """
-                                            {
-                                                "error": "INVALID_REQUEST_PARAMETER",
-                                                "message": "ID must be a positive number",
-                                                "timestamp": "2025-09-19T09:32:19.479Z",
-                                                "path": "/persons/-1"
-                                            }
-                                            """
+                                                    {
+                                                        "error": "INVALID_REQUEST_PARAMETER",
+                                                        "message": "ID must be a positive number",
+                                                        "timestamp": "2025-09-19T09:32:19.479Z",
+                                                        "path": "/persons/-1"
+                                                    }
+                                                    """
                                     )
                             })
             )
@@ -225,13 +252,13 @@ public class PersonController {
                             examples = @ExampleObject(
                                     name = "Missing Required Fields",
                                     value = """
-                                    {
-                                        "error": "MISSING_REQUEST_BODY",
-                                        "message": "Request body is required but missing",
-                                        "timestamp": "2025-09-19T09:32:19.479Z",
-                                        "path": "/persons"
-                                    }
-                                    """
+                                            {
+                                                "error": "MISSING_REQUEST_BODY",
+                                                "message": "Request body is required but missing",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons"
+                                            }
+                                            """
                             ))
             ),
             @ApiResponse(responseCode = "422", description = "Invalid person data",
@@ -242,29 +269,29 @@ public class PersonController {
                                             name = "Validation Failed",
                                             description = "One or more fields are invalid",
                                             value = """
-                                            {
-                                                "status": 422,
-                                                "error": "VALIDATION_FAILED",
-                                                "message": "Request body validation failed",
-                                                "errors": {
-                                                    "name": "Name cannot be null or empty",
-                                                    "weight": "Weight must be greater than 0"
-                                                },
-                                                "timestamp": "2025-09-19T09:32:19.479Z",
-                                                "path": "/persons"
-                                            }
-                                            """
+                                                    {
+                                                        "status": 422,
+                                                        "error": "VALIDATION_FAILED",
+                                                        "message": "Request body validation failed",
+                                                        "errors": {
+                                                            "name": "Name cannot be null or empty",
+                                                            "weight": "Weight must be greater than 0"
+                                                        },
+                                                        "timestamp": "2025-09-19T09:32:19.479Z",
+                                                        "path": "/persons"
+                                                    }
+                                                    """
                                     ),
                                     @ExampleObject(
                                             name = "Invalid Enum Value",
                                             value = """
-                                            {
-                                                "error": "INVALID_ENUM_VALUE",
-                                                "message": "Invalid enum value provided. Check allowed values for enum fields.",
-                                                "timestamp": "2025-09-19T09:32:19.479Z",
-                                                "path": "/persons"
-                                            }
-                                            """
+                                                    {
+                                                        "error": "INVALID_ENUM_VALUE",
+                                                        "message": "Invalid enum value provided. Check allowed values for enum fields.",
+                                                        "timestamp": "2025-09-19T09:32:19.479Z",
+                                                        "path": "/persons"
+                                                    }
+                                                    """
                                     )
                             })
             )
@@ -292,13 +319,13 @@ public class PersonController {
                             examples = @ExampleObject(
                                     name = "Person Not Found",
                                     value = """
-                                    {
-                                        "error": "PERSON_NOT_FOUND",
-                                        "message": "Person with ID 999 not found",
-                                        "timestamp": "2025-09-19T09:32:19.479Z",
-                                        "path": "/persons/999"
-                                    }
-                                    """
+                                            {
+                                                "error": "PERSON_NOT_FOUND",
+                                                "message": "Person with ID 999 not found",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/999"
+                                            }
+                                            """
                             ))
             ),
             @ApiResponse(responseCode = "400", description = "Invalid ID parameter",
@@ -308,24 +335,24 @@ public class PersonController {
                                     @ExampleObject(
                                             name = "Invalid ID Type",
                                             value = """
-                                            {
-                                                "error": "INVALID_PARAMETER_TYPE",
-                                                "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
-                                                "timestamp": "2025-09-19T09:32:19.479Z",
-                                                "path": "/persons/abc"
-                                            }
-                                            """
+                                                    {
+                                                        "error": "INVALID_PARAMETER_TYPE",
+                                                        "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
+                                                        "timestamp": "2025-09-19T09:32:19.479Z",
+                                                        "path": "/persons/abc"
+                                                    }
+                                                    """
                                     ),
                                     @ExampleObject(
                                             name = "Invalid ID Value",
                                             value = """
-                                            {
-                                                "error": "INVALID_REQUEST_PARAMETER",
-                                                "message": "ID must be a positive number",
-                                                "timestamp": "2025-09-19T09:32:19.479Z",
-                                                "path": "/persons/-1"
-                                            }
-                                            """
+                                                    {
+                                                        "error": "INVALID_REQUEST_PARAMETER",
+                                                        "message": "ID must be a positive number",
+                                                        "timestamp": "2025-09-19T09:32:19.479Z",
+                                                        "path": "/persons/-1"
+                                                    }
+                                                    """
                                     )
                             })
             ),
@@ -335,18 +362,18 @@ public class PersonController {
                             examples = @ExampleObject(
                                     name = "Validation Failed",
                                     value = """
-                                    {
-                                        "status": 422,
-                                        "error": "VALIDATION_FAILED",
-                                        "message": "Request body validation failed",
-                                        "errors": {
-                                            "coordinates.x": "Coordinate X must be between -180 and 180",
-                                            "height": "Height must be greater than 0"
-                                        },
-                                        "timestamp": "2025-09-19T09:32:19.479Z",
-                                        "path": "/persons/123"
-                                    }
-                                    """
+                                            {
+                                                "status": 422,
+                                                "error": "VALIDATION_FAILED",
+                                                "message": "Request body validation failed",
+                                                "errors": {
+                                                    "coordinates.x": "Coordinate X must be between -180 and 180",
+                                                    "height": "Height must be greater than 0"
+                                                },
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/123"
+                                            }
+                                            """
                             ))
             )
     })
@@ -377,13 +404,13 @@ public class PersonController {
                             examples = @ExampleObject(
                                     name = "Person Not Found",
                                     value = """
-                                    {
-                                        "error": "PERSON_NOT_FOUND",
-                                        "message": "Person with ID 999 not found",
-                                        "timestamp": "2025-09-19T09:32:19.479Z",
-                                        "path": "/persons/999"
-                                    }
-                                    """
+                                            {
+                                                "error": "PERSON_NOT_FOUND",
+                                                "message": "Person with ID 999 not found",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/999"
+                                            }
+                                            """
                             ))
             ),
             @ApiResponse(responseCode = "400", description = "Invalid ID parameter",
@@ -393,24 +420,24 @@ public class PersonController {
                                     @ExampleObject(
                                             name = "Invalid ID Type",
                                             value = """
-                                            {
-                                                "error": "INVALID_PARAMETER_TYPE",
-                                                "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
-                                                "timestamp": "2025-09-19T09:32:19.479Z",
-                                                "path": "/persons/abc"
-                                            }
-                                            """
+                                                    {
+                                                        "error": "INVALID_PARAMETER_TYPE",
+                                                        "message": "Invalid value 'abc' for parameter 'id'. Expected type: Integer",
+                                                        "timestamp": "2025-09-19T09:32:19.479Z",
+                                                        "path": "/persons/abc"
+                                                    }
+                                                    """
                                     ),
                                     @ExampleObject(
                                             name = "Invalid ID Value",
                                             value = """
-                                            {
-                                                "error": "INVALID_REQUEST_PARAMETER",
-                                                "message": "ID must be a positive number",
-                                                "timestamp": "2025-09-19T09:32:19.479Z",
-                                                "path": "/persons/0"
-                                            }
-                                            """
+                                                    {
+                                                        "error": "INVALID_REQUEST_PARAMETER",
+                                                        "message": "ID must be a positive number",
+                                                        "timestamp": "2025-09-19T09:32:19.479Z",
+                                                        "path": "/persons/0"
+                                                    }
+                                                    """
                                     )
                             })
             )
@@ -447,13 +474,13 @@ public class PersonController {
                             examples = @ExampleObject(
                                     name = "Invalid ID Type",
                                     value = """
-                                    {
-                                        "error": "INVALID_PARAMETER_TYPE",
-                                        "message": "Invalid value 'xyz' for parameter 'id'. Expected type: Integer",
-                                        "timestamp": "2025-09-19T09:32:19.479Z",
-                                        "path": "/persons/exists/xyz"
-                                    }
-                                    """
+                                            {
+                                                "error": "INVALID_PARAMETER_TYPE",
+                                                "message": "Invalid value 'xyz' for parameter 'id'. Expected type: Integer",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/exists/xyz"
+                                            }
+                                            """
                             ))
             )
     })
@@ -478,13 +505,13 @@ public class PersonController {
                             examples = @ExampleObject(
                                     name = "Invalid Hair Color",
                                     value = """
-                                    {
-                                        "error": "INVALID_PARAMETER_TYPE",
-                                        "message": "Invalid value 'PURPLE' for parameter 'hairColor'. Expected one of: [GREEN, BLUE, ORANGE, BROWN]",
-                                        "timestamp": "2025-09-19T09:32:19.479Z",
-                                        "path": "/persons/hair-color/PURPLE"
-                                    }
-                                    """
+                                            {
+                                                "error": "INVALID_PARAMETER_TYPE",
+                                                "message": "Invalid value 'PURPLE' for parameter 'hairColor'. Expected one of: [GREEN, BLUE, ORANGE, BROWN]",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/hair-color/PURPLE"
+                                            }
+                                            """
                             ))
             ),
             @ApiResponse(responseCode = "404", description = "No person found with specified hair color",
@@ -493,13 +520,13 @@ public class PersonController {
                             examples = @ExampleObject(
                                     name = "No Person Found",
                                     value = """
-                                    {
-                                        "error": "PERSON_NOT_FOUND",
-                                        "message": "No person found with hair color ORANGE",
-                                        "timestamp": "2025-09-19T09:32:19.479Z",
-                                        "path": "/persons/hair-color/ORANGE"
-                                    }
-                                    """
+                                            {
+                                                "error": "PERSON_NOT_FOUND",
+                                                "message": "No person found with hair color ORANGE",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/hair-color/ORANGE"
+                                            }
+                                            """
                             ))
             )
     })
@@ -526,13 +553,13 @@ public class PersonController {
                             examples = @ExampleObject(
                                     name = "No Persons in Database",
                                     value = """
-                                    {
-                                        "error": "NO_CONTENT",
-                                        "message": "No persons found in the database",
-                                        "timestamp": "2025-09-19T09:32:19.479Z",
-                                        "path": "/persons/max-name"
-                                    }
-                                    """
+                                            {
+                                                "error": "NO_CONTENT",
+                                                "message": "No persons found in the database",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/max-name"
+                                            }
+                                            """
                             ))
             )
     })
@@ -555,13 +582,13 @@ public class PersonController {
                             examples = @ExampleObject(
                                     name = "Invalid Nationality",
                                     value = """
-                                    {
-                                        "error": "INVALID_PARAMETER_TYPE",
-                                        "message": "Invalid value 'ATLANTIS' for parameter 'nationality'. Expected one of: [SPAIN, INDIA, VATICAN, SOUTH_KOREA, JAPAN]",
-                                        "timestamp": "2025-09-19T09:32:19.479Z",
-                                        "path": "/persons/nationality-less-than/ATLANTIS"
-                                    }
-                                    """
+                                            {
+                                                "error": "INVALID_PARAMETER_TYPE",
+                                                "message": "Invalid value 'ATLANTIS' for parameter 'nationality'. Expected one of: [SPAIN, INDIA, VATICAN, SOUTH_KOREA, JAPAN]",
+                                                "timestamp": "2025-09-19T09:32:19.479Z",
+                                                "path": "/persons/nationality-less-than/ATLANTIS"
+                                            }
+                                            """
                             ))
             )
     })
@@ -588,13 +615,13 @@ public class PersonController {
                             examples = @ExampleObject(
                                     name = "Hair Color Statistics",
                                     value = """
-                                    {
-                                        "GREEN": 5,
-                                        "BLUE": 12,
-                                        "ORANGE": 0,
-                                        "BROWN": 8
-                                    }
-                                    """
+                                            {
+                                                "GREEN": 5,
+                                                "BLUE": 12,
+                                                "ORANGE": 0,
+                                                "BROWN": 8
+                                            }
+                                            """
                             ))
             )
     })
@@ -614,14 +641,14 @@ public class PersonController {
                             examples = @ExampleObject(
                                     name = "Nationality Statistics",
                                     value = """
-                                    {
-                                        "SPAIN": 3,
-                                        "INDIA": 7,
-                                        "VATICAN": 0,
-                                        "SOUTH_KOREA": 2,
-                                        "JAPAN": 10
-                                    }
-                                    """
+                                            {
+                                                "SPAIN": 3,
+                                                "INDIA": 7,
+                                                "VATICAN": 0,
+                                                "SOUTH_KOREA": 2,
+                                                "JAPAN": 10
+                                            }
+                                            """
                             ))
             )
     })
