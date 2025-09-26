@@ -18,11 +18,9 @@ import java.util.Objects;
 @AllArgsConstructor
 public class Coordinates {
 
-    @NotNull(message = "Coordinate X cannot be null")
     @Column(name = "coordinates_x", nullable = false)
     private Long x;
 
-    @NotNull(message = "Coordinate Y cannot be null")
     @Max(value = 626, message = "Coordinate Y must not exceed 626")
     @Column(name = "coordinates_y", nullable = false)
     private Long y;

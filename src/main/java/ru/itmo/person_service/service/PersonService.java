@@ -487,11 +487,11 @@ public class PersonService {
             errors.put("name", "Name cannot exceed 255 characters");
         }
 
-        if (person.getCoordinates() == null) {
-            errors.put("coordinates", "Coordinates are required");
-        } else {
-            validateCoordinates(person.getCoordinates(), errors);
-        }
+//        if (person.getCoordinates() == null) {
+//            errors.put("coordinates", "Coordinates are required");
+//        } else {
+//            validateCoordinates(person.getCoordinates(), errors);
+//        }
 
         if (person.getWeight() <= 0) {
             errors.put("weight", "Weight must be greater than 0");
@@ -519,9 +519,9 @@ public class PersonService {
             errors.put("nationality", "Nationality is required");
         }
 
-        if (person.getLocation() != null) {
-            validateLocation(person.getLocation(), errors);
-        }
+//        if (person.getLocation() != null) {
+//            validateLocation(person.getLocation(), errors);
+//        }
 
         if (!errors.isEmpty()) {
             throw new PersonValidationException(errors);
@@ -531,15 +531,17 @@ public class PersonService {
     private void validateCoordinates(Coordinates coordinates, Map<String, String> errors) {
         if (coordinates.getX() == null) {
             errors.put("coordinates.x", "Coordinate X is required");
-        } else if (Math.abs(coordinates.getX()) > 180) {
-            errors.put("coordinates.x", "Coordinate X must be between -180 and 180");
         }
+//        else if (Math.abs(coordinates.getX()) > 180) {
+//            errors.put("coordinates.x", "Coordinate X must be between -180 and 180");
+//        }
 
         if (coordinates.getY() == null) {
             errors.put("coordinates.y", "Coordinate Y is required");
-        } else if (Math.abs(coordinates.getY()) > 90) {
-            errors.put("coordinates.y", "Coordinate Y must be between -90 and 90");
         }
+//        else if (Math.abs(coordinates.getY()) > 90) {
+//            errors.put("coordinates.y", "Coordinate Y must be between -90 and 90");
+//        }
     }
 
     private void validateLocation(Location location, Map<String, String> errors) {
@@ -547,17 +549,17 @@ public class PersonService {
             errors.put("location.name", "Location name cannot exceed 255 characters");
         }
 
-        if (location.getX() != null && (location.getX() < -180 || location.getX() > 180)) {
-            errors.put("location.x", "Location X must be between -180 and 180");
-        }
-
-        if (location.getY() != null && (location.getY() < -90 || location.getY() > 90)) {
-            errors.put("location.y", "Location Y must be between -90 and 90");
-        }
-
-        if (location.getZ() != null && (location.getZ() < -10000 || location.getZ() > 10000)) {
-            errors.put("location.z", "Location Z must be between -10000 and 10000");
-        }
+//        if (location.getX() != null && (location.getX() < -180 || location.getX() > 180)) {
+//            errors.put("location.x", "Location X must be between -180 and 180");
+//        }
+//
+//        if (location.getY() != null && (location.getY() < -90 || location.getY() > 90)) {
+//            errors.put("location.y", "Location Y must be between -90 and 90");
+//        }
+//
+//        if (location.getZ() != null && (location.getZ() < -10000 || location.getZ() > 10000)) {
+//            errors.put("location.z", "Location Z must be between -10000 and 10000");
+//        }
     }
 
     public Map<Color, Long> getHairColorStatistics() {

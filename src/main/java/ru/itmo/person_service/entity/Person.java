@@ -63,6 +63,7 @@ public class Person {
     private Country nationality;
 
     @Valid
+    @NotNull(message = "Location cannot be null")
     @Embedded
     private Location location;
 }

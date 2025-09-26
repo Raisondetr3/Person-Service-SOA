@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.Objects;
-
 @Embeddable
 @Getter
 @Setter
@@ -26,7 +25,6 @@ public class Location {
     @Column(name = "location_z")
     private Double z;
 
-    @NotBlank(message = "Location name cannot be null or empty")
     @NotNull(message = "Location name cannot be null")
     @Column(name = "location_name", nullable = false)
     private String name;
