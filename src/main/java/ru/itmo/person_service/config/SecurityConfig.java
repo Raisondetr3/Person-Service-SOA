@@ -23,6 +23,7 @@ public class SecurityConfig {
                     cfg.setAllowedOriginPatterns(List.of("*"));
                     cfg.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
                     cfg.setAllowedHeaders(List.of("*"));
+                    cfg.setExposedHeaders(List.of("*"));
                     cfg.setAllowCredentials(true);
                     return cfg;
                 }))

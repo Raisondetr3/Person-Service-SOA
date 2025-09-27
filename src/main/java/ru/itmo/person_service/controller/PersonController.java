@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -62,7 +63,6 @@ public class PersonController {
         - `like` – Contains substring (case-insensitive)
 
         ### Supported Fields:
-        - `id` (Integer)
         - `name` (String)
         - `coordinates.x`, `coordinates.y` (Double)
         - `creationDate` (ISO DateTime)
@@ -108,8 +108,8 @@ public class PersonController {
             @Parameter(description = "Page number (0-based)", example = "0")
             @RequestParam(defaultValue = "0") int page,
 
-            @Parameter(description = "Page size", example = "10")
-            @RequestParam(defaultValue = "10") int size,
+            @Parameter(description = "Page size", example = "4")
+            @RequestParam(defaultValue = "4") int size,
 
             @Parameter(
                     description = "Field(s) to sort by (e.g., 'name', '-weight', 'creationDate'). " +
@@ -136,7 +136,25 @@ public class PersonController {
                 .map(PersonResponseDTO::create)
                 .toList();
 
-        return ResponseEntity.ok(dtoList);
+        System.out.println("=== PAGINATION INFO ===");
+        System.out.println("Requested page: " + page + ", size: " + size);
+        System.out.println("Total elements: " + personPage.getTotalElements());
+        System.out.println("Total pages: " + personPage.getTotalPages());
+        System.out.println("Current page: " + personPage.getNumber());
+        System.out.println("Content size: " + dtoList.size());
+        System.out.println("Has next: " + personPage.hasNext());
+        System.out.println("Has previous: " + personPage.hasPrevious());
+        System.out.println("=====================");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("X-Total-Count", String.valueOf(personPage.getTotalElements()));
+        headers.add("X-Total-Pages", String.valueOf(personPage.getTotalPages()));
+        headers.add("X-Current-Page", String.valueOf(personPage.getNumber()));
+        headers.add("X-Page-Size", String.valueOf(personPage.getSize()));
+        headers.add("X-Has-Next", String.valueOf(personPage.hasNext()));
+        headers.add("X-Has-Previous", String.valueOf(personPage.hasPrevious()));
+
+        return ResponseEntity.ok().headers(headers).body(dtoList);
     }
 
     private Sort buildSort(String[] sortBy) {

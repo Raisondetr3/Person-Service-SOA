@@ -404,7 +404,7 @@ public class PersonService {
             return person;
         } else {
             log.info("No person found with hair color: {}", hairColor);
-            return Optional.empty();
+            throw new PersonNotFoundException("Person with hair color " + hairColor + " not found");
         }
     }
 

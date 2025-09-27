@@ -7,6 +7,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingPathVariableException;
@@ -182,19 +183,26 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ErrorDTO> handleConstraintViolation(
+    public ResponseEntity<Map<String, Object>> handleConstraintViolation(
             ConstraintViolationException e, HttpServletRequest request) {
 
-        log.warn("Constraint violation: {}", e.getMessage());
+        Map<String, String> errors = new HashMap<>();
+        e.getConstraintViolations().forEach(violation -> {
+            String fieldName = violation.getPropertyPath().toString();
+            String message = violation.getMessage();
+            errors.put(fieldName, message);
+        });
 
-        ErrorDTO error = new ErrorDTO(
-                "CONSTRAINT_VIOLATION",
-                "Business rule constraint violation: " + e.getMessage(),
-                LocalDateTime.now(),
-                request.getRequestURI()
-        );
+        log.warn("Constraint violations: {}", errors);
 
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(error);
+        Map<String, Object> response = new HashMap<>();
+        response.put("error", "VALIDATION_FAILED");
+        response.put("message", "Entity validation failed");
+        response.put("errors", errors);
+        response.put("timestamp", LocalDateTime.now());
+        response.put("path", request.getRequestURI());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -404,5 +412,43 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+
+    @ExceptionHandler(TransactionSystemException.class)
+    public ResponseEntity<Map<String, Object>> handleTransactionSystemException(
+            TransactionSystemException e, HttpServletRequest request) {
+
+        log.warn("Transaction system exception: {}", e.getMessage());
+
+        Throwable rootCause = e.getRootCause();
+        if (rootCause instanceof ConstraintViolationException constraintEx) {
+
+            Map<String, String> errors = new HashMap<>();
+            constraintEx.getConstraintViolations().forEach(violation -> {
+                String fieldName = violation.getPropertyPath().toString();
+                String message = violation.getMessage();
+                errors.put(fieldName, message);
+            });
+
+            log.warn("Constraint violations: {}", errors);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("error", "VALIDATION_FAILED");
+            response.put("message", "Entity validation failed");
+            response.put("errors", errors);
+            response.put("timestamp", LocalDateTime.now());
+            response.put("path", request.getRequestURI());
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+
+        ErrorDTO error = new ErrorDTO(
+                "TRANSACTION_ERROR",
+                "Transaction failed to complete",
+                LocalDateTime.now(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body((Map<String, Object>) error);
     }
 }
