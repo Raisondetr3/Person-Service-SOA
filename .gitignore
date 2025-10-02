@@ -32,4 +32,13 @@ build/
 ### VS Code ###
 .vscode/
 
+# Environment variables
 .env
+.env.local
+.env.*.local
+
+# Keystores
+*.p12
+*.jks
+*.keystore
+keystore.*
