@@ -28,7 +28,7 @@ public class Person {
     private Integer id;
 
     @NotBlank(message = "Name cannot be null or empty")
-    @Column(name = "name", nullable = false)
+    @Column(name = "name", nullable = false, columnDefinition = "TEXT")
     private String name;
 
     @Valid
