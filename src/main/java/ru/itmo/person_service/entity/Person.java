@@ -1,5 +1,6 @@
 package ru.itmo.person_service.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -28,7 +29,7 @@ public class Person {
     private Integer id;
 
     @NotBlank(message = "Name cannot be null or empty")
-    @Column(name = "name", nullable = false)
+    @Column(name = "name", nullable = false, columnDefinition = "TEXT")
     private String name;
 
     @Valid
@@ -37,6 +38,7 @@ public class Person {
     private Coordinates coordinates;
 
     @Column(name = "creation_date", nullable = false)
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.XXX'Z'")
     private LocalDateTime creationDate;
 
     @Min(value = 1, message = "Height must be greater than 0")

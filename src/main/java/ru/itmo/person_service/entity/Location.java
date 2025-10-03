@@ -27,7 +27,7 @@ public class Location {
     private Double z;
 
     @NotNull(message = "Location name cannot be null")
-    @Column(name = "location_name", nullable = false)
+    @Column(name = "location_name", nullable = false, columnDefinition = "TEXT")
     private String name;
 
     @Override

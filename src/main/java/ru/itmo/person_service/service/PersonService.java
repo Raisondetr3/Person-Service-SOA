@@ -9,13 +9,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.itmo.person_service.dto.PersonRequestDTO;
 import ru.itmo.person_service.entity.Coordinates;
 import ru.itmo.person_service.entity.Person;
 import ru.itmo.person_service.entity.Location;
 import ru.itmo.person_service.entity.enums.Color;
 import ru.itmo.person_service.entity.enums.Country;
 import ru.itmo.person_service.exception.InvalidPersonDataException;
-import ru.itmo.person_service.exception.InvalidRequestParameterException;
 import ru.itmo.person_service.exception.PersonNotFoundException;
 import ru.itmo.person_service.exception.PersonValidationException;
 import ru.itmo.person_service.repo.PersonRepository;
@@ -163,7 +163,14 @@ public class PersonService {
     @SuppressWarnings("unchecked")
     private Predicate buildGreaterThanPredicate(CriteriaBuilder cb, Path<Object> path, String value, Class<?> fieldType) {
         if (isComparable(fieldType)) {
-            Comparable<Object> convertedValue = (Comparable<Object>) convertValueToType(value, fieldType);
+            Comparable<Object> convertedValue;
+            if (Enum.class.isAssignableFrom(fieldType)) {
+                convertedValue = (Comparable)(((Enum) convertValueToType(value, fieldType)).ordinal());
+                fieldType = Integer.class;
+            }
+            else {
+                convertedValue = (Comparable<Object>) convertValueToType(value, fieldType);
+            }
             if (convertedValue != null) {
                 Expression<? extends Comparable> comparableExpression = path.as((Class<? extends Comparable>) fieldType);
                 return cb.greaterThan((Expression<Comparable>) comparableExpression, convertedValue);
@@ -292,8 +299,9 @@ public class PersonService {
     }
 
     @Transactional
-    public Person save(Person person) {
-        validatePerson(person);
+    public Person save(PersonRequestDTO personDto) {
+        validatePerson(personDto);
+        Person person = personDto.toPerson();
 
         if (person.getId() == null || person.getId() == 0) {
             person.setCreationDate(LocalDateTime.now());
@@ -319,13 +327,15 @@ public class PersonService {
     }
 
     @Transactional
-    public Person update(Integer id, Person personData) {
+    public Person update(Integer id, PersonRequestDTO personDto) {
         validateId(id);
 
         Person existingPerson = personRepository.findById(id)
                 .orElseThrow(() -> new PersonNotFoundException(id));
 
-        validatePerson(personData);
+        validatePerson(personDto);
+
+        Person personData = personDto.toPerson();
 
         personData.setId(id);
         personData.setCreationDate(existingPerson.getCreationDate());
@@ -474,16 +484,16 @@ public class PersonService {
             );
         }
     }
-    private void validatePerson(Person person) {
+    private void validatePerson(PersonRequestDTO person) {
         if (person == null) {
             throw new InvalidPersonDataException("Person cannot be null");
         }
 
         Map<String, String> errors = new HashMap<>();
 
-        if (person.getName() == null || person.getName().trim().isEmpty()) {
+        if (person.name() == null || person.name().trim().isEmpty()) {
             errors.put("name", "Name is required and cannot be empty");
-        } else if (person.getName().trim().length() > 255) {
+        } else if (person.name().trim().length() > 255) {
             errors.put("name", "Name cannot exceed 255 characters");
         }
 
@@ -493,29 +503,32 @@ public class PersonService {
 //            validateCoordinates(person.getCoordinates(), errors);
 //        }
 
-        if (person.getWeight() <= 0) {
+        if (person.weight() == null) {
+            errors.put("weight", "Weight is required");
+        }
+        else if (person.weight() <= 0) {
             errors.put("weight", "Weight must be greater than 0");
-        } else if (person.getWeight() > 1000) {
+        } else if (person.weight() > 1000) {
             errors.put("weight", "Weight cannot exceed 1000 kg");
         }
 
-        if (person.getHeight() != null) {
-            if (person.getHeight() <= 0) {
+        if (person.height() != null) {
+            if (person.height() <= 0) {
                 errors.put("height", "Height must be greater than 0");
-            } else if (person.getHeight() > 300) {
+            } else if (person.height() > 300) {
                 errors.put("height", "Height cannot exceed 300 cm");
             }
         }
 
-        if (person.getHairColor() == null) {
+        if (person.hairColor() == null) {
             errors.put("hairColor", "Hair color is required");
         }
 
-        if (person.getEyeColor() == null) {
+        if (person.eyeColor() == null) {
             errors.put("eyeColor", "Eye color is required");
         }
 
-        if (person.getNationality() == null) {
+        if (person.nationality() == null) {
             errors.put("nationality", "Nationality is required");
         }
 

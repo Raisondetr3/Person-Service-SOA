@@ -17,12 +17,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import ru.itmo.person_service.dto.ErrorDTO;
+import ru.itmo.person_service.dto.ErrorsDto;
 import ru.itmo.person_service.exception.InvalidPersonDataException;
 import ru.itmo.person_service.exception.InvalidRequestParameterException;
 import ru.itmo.person_service.exception.PersonNotFoundException;
 import ru.itmo.person_service.exception.PersonValidationException;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,7 +43,7 @@ public class GlobalExceptionHandler {
         ErrorDTO error = new ErrorDTO(
                 "PERSON_NOT_FOUND",
                 e.getMessage(),
-                LocalDateTime.now(),
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
                 request.getRequestURI()
         );
 
@@ -56,7 +59,7 @@ public class GlobalExceptionHandler {
         ErrorDTO error = new ErrorDTO(
                 "INVALID_REQUEST_PARAMETER",
                 e.getMessage(),
-                LocalDateTime.now(),
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
                 request.getRequestURI()
         );
 
@@ -64,7 +67,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(PersonValidationException.class)
-    public ResponseEntity<Map<String, Object>> handlePersonValidation(
+    public ResponseEntity<ErrorsDto> handlePersonValidation(
             PersonValidationException e, HttpServletRequest request) {
 
         log.warn("Person validation failed: {}", e.getErrors());
@@ -81,18 +84,15 @@ public class GlobalExceptionHandler {
                 ? "Invalid request parameter"
                 : "Request body validation failed";
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("error", errorCode);
-        response.put("message", e.getMessage() != null ? e.getMessage() : message);
+        ErrorsDto errorsDto = new ErrorsDto(
+                errorCode,
+                e.getMessage() != null ? e.getMessage() : message,
+                e.getErrors(),
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
+                request.getRequestURI()
+        );
 
-        if (e.getErrors() != null) {
-            response.put("errors", e.getErrors());
-        }
-
-        response.put("timestamp", LocalDateTime.now());
-        response.put("path", request.getRequestURI());
-
-        return ResponseEntity.status(status).body(response);
+        return ResponseEntity.status(status).body(errorsDto);
     }
 
     private HttpStatus determineValidationStatus(PersonValidationException e) {
@@ -154,7 +154,7 @@ public class GlobalExceptionHandler {
         ErrorDTO error = new ErrorDTO(
                 "UNPROCESSABLE_ENTITY",
                 e.getMessage(),
-                LocalDateTime.now(),
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
                 request.getRequestURI()
         );
 
@@ -162,7 +162,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleValidationErrors(
+    public ResponseEntity<ErrorsDto> handleValidationErrors(
             MethodArgumentNotValidException e, HttpServletRequest request) {
 
         Map<String, String> errors = new HashMap<>();
@@ -172,18 +172,19 @@ public class GlobalExceptionHandler {
 
         log.warn("Validation errors: {}", errors);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("error", "VALIDATION_FAILED");
-        response.put("message", "Request body validation failed");
-        response.put("errors", errors);
-        response.put("timestamp", LocalDateTime.now());
-        response.put("path", request.getRequestURI());
+        ErrorsDto errorsDto = new ErrorsDto(
+                "VALIDATION_FAILED",
+                "Request body validation failed",
+                errors,
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
+                request.getRequestURI()
+        );
 
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(response);
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(errorsDto);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<Map<String, Object>> handleConstraintViolation(
+    public ResponseEntity<ErrorsDto> handleConstraintViolation(
             ConstraintViolationException e, HttpServletRequest request) {
 
         Map<String, String> errors = new HashMap<>();
@@ -195,14 +196,15 @@ public class GlobalExceptionHandler {
 
         log.warn("Constraint violations: {}", errors);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("error", "VALIDATION_FAILED");
-        response.put("message", "Entity validation failed");
-        response.put("errors", errors);
-        response.put("timestamp", LocalDateTime.now());
-        response.put("path", request.getRequestURI());
+        ErrorsDto errorsDto = new ErrorsDto(
+                "VALIDATION_FAILED",
+                "Entity validation failed",
+                errors,
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
+                request.getRequestURI()
+        );
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorsDto);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -240,7 +242,7 @@ public class GlobalExceptionHandler {
         ErrorDTO error = new ErrorDTO(
                 errorCode,
                 message,
-                LocalDateTime.now(),
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
                 request.getRequestURI()
         );
 
@@ -266,7 +268,7 @@ public class GlobalExceptionHandler {
         ErrorDTO error = new ErrorDTO(
                 "INVALID_PARAMETER_TYPE",
                 message,
-                LocalDateTime.now(),
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
                 request.getRequestURI()
         );
 
@@ -307,7 +309,7 @@ public class GlobalExceptionHandler {
         ErrorDTO error = new ErrorDTO(
                 errorCode,
                 message,
-                LocalDateTime.now(),
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
                 request.getRequestURI()
         );
 
@@ -327,7 +329,7 @@ public class GlobalExceptionHandler {
         ErrorDTO error = new ErrorDTO(
                 "METHOD_NOT_ALLOWED",
                 message,
-                LocalDateTime.now(),
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
                 request.getRequestURI()
         );
 
@@ -343,7 +345,7 @@ public class GlobalExceptionHandler {
         ErrorDTO error = new ErrorDTO(
                 "ENDPOINT_NOT_FOUND",
                 String.format("Endpoint %s %s not found", e.getHttpMethod(), e.getRequestURL()),
-                LocalDateTime.now(),
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
                 request.getRequestURI()
         );
 
@@ -359,7 +361,7 @@ public class GlobalExceptionHandler {
         ErrorDTO error = new ErrorDTO(
                 "INVALID_ARGUMENT",
                 e.getMessage(),
-                LocalDateTime.now(),
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
                 request.getRequestURI()
         );
 
@@ -375,7 +377,7 @@ public class GlobalExceptionHandler {
         ErrorDTO error = new ErrorDTO(
                 "MISSING_PATH_VARIABLE",
                 String.format("Missing required path variable: %s", e.getVariableName()),
-                LocalDateTime.now(),
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
                 request.getRequestURI()
         );
 
@@ -391,7 +393,7 @@ public class GlobalExceptionHandler {
         ErrorDTO error = new ErrorDTO(
                 "MISSING_REQUEST_PARAMETER",
                 String.format("Missing required request parameter: %s", e.getParameterName()),
-                LocalDateTime.now(),
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
                 request.getRequestURI()
         );
 
@@ -407,7 +409,7 @@ public class GlobalExceptionHandler {
         ErrorDTO error = new ErrorDTO(
                 "INTERNAL_SERVER_ERROR",
                 "An unexpected error occurred",
-                LocalDateTime.now(),
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
                 request.getRequestURI()
         );
 
@@ -415,7 +417,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(TransactionSystemException.class)
-    public ResponseEntity<Map<String, Object>> handleTransactionSystemException(
+    public ResponseEntity<ErrorsDto> handleTransactionSystemException(
             TransactionSystemException e, HttpServletRequest request) {
 
         log.warn("Transaction system exception: {}", e.getMessage());
@@ -432,23 +434,25 @@ public class GlobalExceptionHandler {
 
             log.warn("Constraint violations: {}", errors);
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("error", "VALIDATION_FAILED");
-            response.put("message", "Entity validation failed");
-            response.put("errors", errors);
-            response.put("timestamp", LocalDateTime.now());
-            response.put("path", request.getRequestURI());
+            ErrorsDto errorsDto = new ErrorsDto(
+                    "VALIDATION_FAILED",
+                    "Entity validation failed",
+                    errors,
+                    LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
+                    request.getRequestURI()
+            );
 
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorsDto);
         }
 
-        ErrorDTO error = new ErrorDTO(
+        ErrorsDto error = new ErrorsDto(
                 "TRANSACTION_ERROR",
                 "Transaction failed to complete",
-                LocalDateTime.now(),
+                new HashMap<>(),
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant(),
                 request.getRequestURI()
         );
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body((Map<String, Object>) error);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 }
