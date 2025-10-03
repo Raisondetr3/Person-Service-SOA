@@ -1,16 +1,19 @@
 package ru.itmo.person_service.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import ru.itmo.person_service.entity.Person;
 import ru.itmo.person_service.entity.enums.Color;
 import ru.itmo.person_service.entity.enums.Country;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.ZoneId;
 
 public record PersonResponseDTO(
         Integer id,
         String name,
         CoordinatesDTO coordinates,
-        LocalDateTime creationDate,
+        @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
+        Instant creationDate,
         Long height,
         Float weight,
         Color hairColor,
@@ -23,7 +26,7 @@ public record PersonResponseDTO(
                 person.getId(),
                 person.getName(),
                 CoordinatesDTO.create(person.getCoordinates()),
-                person.getCreationDate(),
+                person.getCreationDate().atZone(ZoneId.systemDefault()).toInstant(),
                 person.getHeight(),
                 person.getWeight(),
                 person.getHairColor(),

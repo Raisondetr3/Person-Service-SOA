@@ -319,7 +319,7 @@ public class PersonController {
             @Parameter(description = "Person data", required = true)
             @Valid @RequestBody PersonRequestDTO personDTO) {
 
-        Person savedPerson = personService.save(personDTO.toPerson());
+        Person savedPerson = personService.save(personDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(PersonResponseDTO.create(savedPerson));
     }
 
@@ -403,7 +403,7 @@ public class PersonController {
             @Valid @RequestBody PersonRequestDTO personDTO) {
 
         try {
-            Person updatedPerson = personService.update(id, personDTO.toPerson());
+            Person updatedPerson = personService.update(id, personDTO);
             return ResponseEntity.ok(PersonResponseDTO.create(updatedPerson));
         } catch (PersonNotFoundException e) {
             return ResponseEntity.notFound().build();

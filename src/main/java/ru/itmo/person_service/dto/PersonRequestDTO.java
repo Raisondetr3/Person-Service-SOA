@@ -1,13 +1,8 @@
 package ru.itmo.person_service.dto;
 
-import io.swagger.v3.oas.annotations.media.Schema;
 import ru.itmo.person_service.entity.Person;
 import ru.itmo.person_service.entity.enums.Color;
 import ru.itmo.person_service.entity.enums.Country;
-
-import java.time.LocalDateTime;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
 public record PersonRequestDTO(
         String name,
@@ -20,6 +15,9 @@ public record PersonRequestDTO(
         LocationDTO location
 ) {
     public Person toPerson() {
+        if (weight == null) {
+
+        }
         return new Person(
                 null,
                 name,
