@@ -118,6 +118,13 @@ public class PersonService {
     private Predicate buildPredicateForOperator(CriteriaBuilder cb, Path<Object> path,
                                                 String operator, String value, Class<?> fieldType) {
 
+        // Специальная обработка для enum-типов при операторах сравнения
+        if (Enum.class.isAssignableFrom(fieldType) &&
+                (operator.equals("lt") || operator.equals("lte") ||
+                        operator.equals("gt") || operator.equals("gte"))) {
+            return buildEnumComparisonPredicate(cb, path, operator, value, fieldType);
+        }
+
         switch (operator) {
             case "like":
                 return buildLikePredicate(cb, path, value, fieldType);
@@ -139,11 +146,73 @@ public class PersonService {
         }
     }
 
+    private Predicate buildEnumComparisonPredicate(CriteriaBuilder cb, Path<Object> path,
+                                                   String operator, String value, Class<?> enumType) {
+        try {
+            Integer ordinalValue = null;
+
+            // Пробуем преобразовать значение в число
+            try {
+                ordinalValue = Integer.valueOf(value);
+            } catch (NumberFormatException e) {
+                // Если не число, пробуем преобразовать в enum
+                Enum<?> enumValue = convertToEnum(value, enumType);
+                if (enumValue != null) {
+                    ordinalValue = enumValue.ordinal();
+                } else {
+                    log.warn("Invalid enum value for comparison: {}", value);
+                    return null;
+                }
+            }
+
+            return buildOrdinalComparisonPredicate(cb, path, operator, ordinalValue, enumType);
+
+        } catch (Exception e) {
+            log.warn("Error comparing enum values: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private Predicate buildOrdinalComparisonPredicate(CriteriaBuilder cb, Path<Object> path,
+                                                      String operator, Integer ordinal, Class<?> enumType) {
+        Expression<String> stringPath = path.as(String.class);
+
+        // Динамически создаем маппинг на основе типа enum
+        CriteriaBuilder.SimpleCase<String, Integer> selectCase = cb.selectCase(stringPath);
+
+        // Получаем все константы enum и создаем маппинг
+        if (enumType.isEnum()) {
+            Enum<?>[] enumConstants = (Enum<?>[]) enumType.getEnumConstants();
+            for (Enum<?> enumConstant : enumConstants) {
+                selectCase = selectCase.when(enumConstant.name(), enumConstant.ordinal());
+            }
+        }
+
+        Expression<Integer> ordinalExpression = selectCase.otherwise(-1);
+
+        switch (operator) {
+            case "lt":
+                return cb.lessThan(ordinalExpression, ordinal);
+            case "lte":
+                return cb.lessThanOrEqualTo(ordinalExpression, ordinal);
+            case "gt":
+                return cb.greaterThan(ordinalExpression, ordinal);
+            case "gte":
+                return cb.greaterThanOrEqualTo(ordinalExpression, ordinal);
+            default:
+                return null;
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private Predicate buildLikePredicate(CriteriaBuilder cb, Path<Object> path, String value, Class<?> fieldType) {
         if (String.class.isAssignableFrom(fieldType)) {
             Expression<String> stringPath = path.as(String.class);
             return cb.like(cb.lower(stringPath), "%" + value.toLowerCase() + "%");
+        } else if (Enum.class.isAssignableFrom(fieldType)) {
+            // Для enum делаем like по строковому представлению
+            Expression<String> stringPath = path.as(String.class);
+            return cb.like(cb.lower(stringPath), "%" + value.toUpperCase() + "%");
         } else {
             Expression<String> stringExpression = cb.function("CAST", String.class, path);
             return cb.like(cb.lower(stringExpression), "%" + value.toLowerCase() + "%");
@@ -162,60 +231,57 @@ public class PersonService {
 
     @SuppressWarnings("unchecked")
     private Predicate buildGreaterThanPredicate(CriteriaBuilder cb, Path<Object> path, String value, Class<?> fieldType) {
-        if (isComparable(fieldType)) {
-            Comparable<Object> convertedValue;
-            if (Enum.class.isAssignableFrom(fieldType)) {
-                convertedValue = (Comparable)(((Enum) convertValueToType(value, fieldType)).ordinal());
-                fieldType = Integer.class;
-            }
-            else {
-                convertedValue = (Comparable<Object>) convertValueToType(value, fieldType);
-            }
+        // Enum обрабатываются отдельно через buildEnumComparisonPredicate
+        if (isComparable(fieldType) && !Enum.class.isAssignableFrom(fieldType)) {
+            Comparable<Object> convertedValue = (Comparable<Object>) convertValueToType(value, fieldType);
             if (convertedValue != null) {
                 Expression<? extends Comparable> comparableExpression = path.as((Class<? extends Comparable>) fieldType);
                 return cb.greaterThan((Expression<Comparable>) comparableExpression, convertedValue);
             }
         }
-        log.warn("Cannot apply 'greater than' operator to non-comparable field type: {}", fieldType.getSimpleName());
+        log.warn("Cannot apply 'greater than' operator to field type: {}", fieldType.getSimpleName());
         return null;
     }
 
     @SuppressWarnings("unchecked")
     private Predicate buildGreaterThanOrEqualPredicate(CriteriaBuilder cb, Path<Object> path, String value, Class<?> fieldType) {
-        if (isComparable(fieldType)) {
+        // Enum обрабатываются отдельно через buildEnumComparisonPredicate
+        if (isComparable(fieldType) && !Enum.class.isAssignableFrom(fieldType)) {
             Comparable<Object> convertedValue = (Comparable<Object>) convertValueToType(value, fieldType);
             if (convertedValue != null) {
                 Expression<? extends Comparable> comparableExpression = path.as((Class<? extends Comparable>) fieldType);
                 return cb.greaterThanOrEqualTo((Expression<Comparable>) comparableExpression, convertedValue);
             }
         }
-        log.warn("Cannot apply 'greater than or equal' operator to non-comparable field type: {}", fieldType.getSimpleName());
+        log.warn("Cannot apply 'greater than or equal' operator to field type: {}", fieldType.getSimpleName());
         return null;
     }
 
     @SuppressWarnings("unchecked")
     private Predicate buildLessThanPredicate(CriteriaBuilder cb, Path<Object> path, String value, Class<?> fieldType) {
-        if (isComparable(fieldType)) {
+        // Enum обрабатываются отдельно через buildEnumComparisonPredicate
+        if (isComparable(fieldType) && !Enum.class.isAssignableFrom(fieldType)) {
             Comparable<Object> convertedValue = (Comparable<Object>) convertValueToType(value, fieldType);
             if (convertedValue != null) {
                 Expression<? extends Comparable> comparableExpression = path.as((Class<? extends Comparable>) fieldType);
                 return cb.lessThan((Expression<Comparable>) comparableExpression, convertedValue);
             }
         }
-        log.warn("Cannot apply 'less than' operator to non-comparable field type: {}", fieldType.getSimpleName());
+        log.warn("Cannot apply 'less than' operator to field type: {}", fieldType.getSimpleName());
         return null;
     }
 
     @SuppressWarnings("unchecked")
     private Predicate buildLessThanOrEqualPredicate(CriteriaBuilder cb, Path<Object> path, String value, Class<?> fieldType) {
-        if (isComparable(fieldType)) {
+        // Enum обрабатываются отдельно через buildEnumComparisonPredicate
+        if (isComparable(fieldType) && !Enum.class.isAssignableFrom(fieldType)) {
             Comparable<Object> convertedValue = (Comparable<Object>) convertValueToType(value, fieldType);
             if (convertedValue != null) {
                 Expression<? extends Comparable> comparableExpression = path.as((Class<? extends Comparable>) fieldType);
                 return cb.lessThanOrEqualTo((Expression<Comparable>) comparableExpression, convertedValue);
             }
         }
-        log.warn("Cannot apply 'less than or equal' operator to non-comparable field type: {}", fieldType.getSimpleName());
+        log.warn("Cannot apply 'less than or equal' operator to field type: {}", fieldType.getSimpleName());
         return null;
     }
 
@@ -484,6 +550,7 @@ public class PersonService {
             );
         }
     }
+
     private void validatePerson(PersonRequestDTO person) {
         if (person == null) {
             throw new InvalidPersonDataException("Person cannot be null");
@@ -491,19 +558,16 @@ public class PersonService {
 
         Map<String, String> errors = new HashMap<>();
 
-        if (person.getName() == null || person.getName().trim().isEmpty()) {
+        if (person.name() == null || person.name().trim().isEmpty()) {
             errors.put("name", "Name is required and cannot be empty");
-        } else if (person.getName().trim().length() > 255) {
+        } else if (person.name().trim().length() > 255) {
             errors.put("name", "Name cannot exceed 255 characters");
         }
 
-//        if (person.getCoordinates() == null) {
-//            errors.put("coordinates", "Coordinates are required");
-//        } else {
-//            validateCoordinates(person.getCoordinates(), errors);
-//        }
-
-        if (person.getWeight() <= 0) {
+        if (person.weight() == null) {
+            errors.put("weight", "Weight is required");
+        }
+        else if (person.weight() <= 0) {
             errors.put("weight", "Weight must be greater than 0");
         } else if (person.weight() > 1000) {
             errors.put("weight", "Weight cannot exceed 1000 kg");
@@ -529,10 +593,6 @@ public class PersonService {
             errors.put("nationality", "Nationality is required");
         }
 
-//        if (person.getLocation() != null) {
-//            validateLocation(person.getLocation(), errors);
-//        }
-
         if (!errors.isEmpty()) {
             throw new PersonValidationException(errors);
         }
@@ -542,34 +602,16 @@ public class PersonService {
         if (coordinates.getX() == null) {
             errors.put("coordinates.x", "Coordinate X is required");
         }
-//        else if (Math.abs(coordinates.getX()) > 180) {
-//            errors.put("coordinates.x", "Coordinate X must be between -180 and 180");
-//        }
 
         if (coordinates.getY() == null) {
             errors.put("coordinates.y", "Coordinate Y is required");
         }
-//        else if (Math.abs(coordinates.getY()) > 90) {
-//            errors.put("coordinates.y", "Coordinate Y must be between -90 and 90");
-//        }
     }
 
     private void validateLocation(Location location, Map<String, String> errors) {
         if (location.getName() != null && location.getName().trim().length() > 255) {
             errors.put("location.name", "Location name cannot exceed 255 characters");
         }
-
-//        if (location.getX() != null && (location.getX() < -180 || location.getX() > 180)) {
-//            errors.put("location.x", "Location X must be between -180 and 180");
-//        }
-//
-//        if (location.getY() != null && (location.getY() < -90 || location.getY() > 90)) {
-//            errors.put("location.y", "Location Y must be between -90 and 90");
-//        }
-//
-//        if (location.getZ() != null && (location.getZ() < -10000 || location.getZ() > 10000)) {
-//            errors.put("location.z", "Location Z must be between -10000 and 10000");
-//        }
     }
 
     public Map<Color, Long> getHairColorStatistics() {
