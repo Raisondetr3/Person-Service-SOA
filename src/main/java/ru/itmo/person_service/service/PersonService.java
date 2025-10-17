@@ -560,8 +560,6 @@ public class PersonService {
 
         if (person.name() == null || person.name().trim().isEmpty()) {
             errors.put("name", "Name is required and cannot be empty");
-        } else if (person.name().trim().length() > 255) {
-            errors.put("name", "Name cannot exceed 255 characters");
         }
 
         if (person.weight() == null) {
