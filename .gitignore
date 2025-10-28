@@ -37,8 +37,16 @@ build/
 .env.local
 .env.*.local
 
-# Keystores
+# Keystores and certificates
 *.p12
 *.jks
 *.keystore
 keystore.*
+*.pem
+haproxy-cert.pem
+
+logs/
+startup.log
+
+CLAUDE.md
+.claude
