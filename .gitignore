@@ -1,8 +1,9 @@
 HELP.md
 target/
-.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
 
 ### STS ###
 .apt_generated
@@ -47,10 +48,9 @@ haproxy-cert.pem
 
 logs/
 startup.log
-
-# Generated files (don't commit)
-haproxy.cfg
-haproxy.cfg.static.backup
+*.log
 
 CLAUDE.md
 .claude
+
+k8s.md
