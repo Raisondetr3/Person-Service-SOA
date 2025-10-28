@@ -48,5 +48,9 @@ haproxy-cert.pem
 logs/
 startup.log
 
+# Generated files (don't commit)
+haproxy.cfg
+haproxy.cfg.static.backup
+
 CLAUDE.md
 .claude
