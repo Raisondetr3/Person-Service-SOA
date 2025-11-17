@@ -55,6 +55,8 @@ backend person_service_backend
     
     server MacBook-Air-Raison.local-person-service-instance2 127.0.0.1:58124 check ssl verify none inter 10s fall 3 rise 2 maxconn 100
     
+    server MacBook-Air-Raison.local-person-service-instance3 127.0.0.1:58124 check ssl verify none inter 10s fall 3 rise 2 maxconn 100
+    
 
     http-response set-header X-Server-Instance %s
 

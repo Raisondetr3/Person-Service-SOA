@@ -7,9 +7,18 @@ defaults
     mode    http
     option  httplog
     option  dontlognull
+
+    # Timeouts
     timeout connect 5000ms
     timeout client  50000ms
     timeout server  50000ms
+
+    # CRITICAL: Disable retries globally
+    retries 0
+
+    # Connection handling
+    option http-server-close
+    no option http-keep-alive
 
 # Statistics page
 listen stats
@@ -20,27 +29,70 @@ listen stats
     stats show-legends
     stats show-node
 
-# Frontend - where HAProxy listens for incoming requests
 frontend person_service_frontend
     bind *:8080 ssl crt haproxy-cert.pem
     mode http
     default_backend person_service_backend
 
+    http-request set-header X-Request-ID %[uuid()]
     http-request set-header X-Forwarded-For %[src]
     http-request set-header X-Forwarded-Proto https
 
-# Backend - dynamically discovered from Consul
 backend person_service_backend
     mode http
     balance roundrobin
+    option forwardfor
+    no option redispatch
+    option http-server-close
+    no option abortonclose
 
-    # Health checks still performed by HAProxy for failover
     option httpchk
     http-check send meth GET uri /actuator/health ver HTTP/1.1 hdr Host localhost
     http-check expect status 200
-{{- range service "person-service" }}
-    # Dynamically discovered instance: {{ .ID }}
-    server {{ .ID }} {{ .Address }}:{{ .Port }} check ssl verify none inter 10s fall 3 rise 2
-{{- end }}
+
+    {{ range service "person-service" }}
+    server {{ .Node }}-{{ .ID }} {{ .Address }}:{{ .Port }} check ssl verify none inter 10s fall 3 rise 2 maxconn 100
+    {{ else }}
+    {{ end }}
 
     http-response set-header X-Server-Instance %s
+
+frontend demography_service_frontend
+    bind *:8081 ssl crt haproxy-cert.pem
+    mode http
+    default_backend demography_service_backend
+
+    http-request set-header X-Request-ID %[uuid()]
+    http-request set-header X-Forwarded-For %[src]
+    http-request set-header X-Forwarded-Proto https
+
+    # CORS headers for frontend access
+    http-response set-header Access-Control-Allow-Origin "*"
+    http-response set-header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    http-response set-header Access-Control-Allow-Headers "Content-Type, Authorization"
+    http-response set-header Access-Control-Max-Age "3600"
+
+    # Handle preflight OPTIONS requests
+    http-request return status 200 content-type text/plain if METH_OPTIONS
+
+backend demography_service_backend
+    mode http
+    balance roundrobin
+    option forwardfor
+    no option redispatch
+    option http-server-close
+    no option abortonclose
+
+    # HTTPS backends with SSL (WildFly HTTPS listeners)
+    option httpchk
+    http-check send meth GET uri /api/ping ver HTTP/1.1 hdr Host localhost
+    http-check expect string pong
+
+    server demography1 127.0.0.1:58488 check ssl verify none inter 10s fall 3 rise 2 maxconn 100
+    server demography2 127.0.0.1:58489 check ssl verify none inter 10s fall 3 rise 2 maxconn 100
+
+    http-response set-header X-Server-Instance %s
+    http-response set-header Access-Control-Allow-Origin "*"
+    http-response set-header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    http-response set-header Access-Control-Allow-Headers "Content-Type, Authorization"
+

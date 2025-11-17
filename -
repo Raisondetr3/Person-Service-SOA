@@ -1,0 +1,5 @@
+
+DEBUG: Node=MacBook-Air-Raison.local ID=person-service:instance1 Address=127.0.0.1 Port=58123
+
+DEBUG: Node=MacBook-Air-Raison.local ID=person-service:instance2 Address=127.0.0.1 Port=58124
+
