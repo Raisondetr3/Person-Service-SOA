@@ -69,7 +69,7 @@ public class PersonController {
         - `height` (Long, optional)
         - `weight` (Float)
         - `hairColor`, `eyeColor` (Enum: GREEN, BLUE, ORANGE, BROWN)
-        - `nationality` (Enum: SPAIN, INDIA, VATICAN, SOUTH_KOREA, JAPAN)
+        - `nationality` (Enum: SPAIN, INDIA, FRANCE, SOUTH_KOREA, THAILAND)
         - `location.x` (Float, optional), `location.y` (Long, optional), `location.z` (Double, optional), `location.name` (String, optional)
 
         ### Examples:
@@ -602,7 +602,7 @@ public class PersonController {
                                     value = """
                                             {
                                                 "error": "INVALID_PARAMETER_TYPE",
-                                                "message": "Invalid value 'ATLANTIS' for parameter 'nationality'. Expected one of: [SPAIN, INDIA, VATICAN, SOUTH_KOREA, JAPAN]",
+                                                "message": "Invalid value 'ATLANTIS' for parameter 'nationality'. Expected one of: [SPAIN, INDIA, FRANCE, SOUTH_KOREA, THAILAND]",
                                                 "timestamp": "2025-09-19T09:32:19.479Z",
                                                 "path": "/persons/nationality-less-than/ATLANTIS"
                                             }
@@ -662,9 +662,9 @@ public class PersonController {
                                             {
                                                 "SPAIN": 3,
                                                 "INDIA": 7,
-                                                "VATICAN": 0,
+                                                "FRANCE": 0,
                                                 "SOUTH_KOREA": 2,
-                                                "JAPAN": 10
+                                                "THAILAND": 10
                                             }
                                             """
                             ))

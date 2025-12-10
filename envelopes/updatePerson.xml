@@ -1,0 +1,28 @@
+<soapenv:Envelope
+        xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+        xmlns:ps="http://itmo.ru/person-service">
+    <soapenv:Header/>
+    <soapenv:Body>
+        <ps:updatePersonRequest>
+            <ps:id>1</ps:id>
+            <ps:person>
+                <ps:name>John Updated</ps:name>
+                <ps:coordinates>
+                    <ps:x>45</ps:x>
+                    <ps:y>90</ps:y>
+                </ps:coordinates>
+                <ps:weight>75.5</ps:weight>
+                <ps:hairColor>GREEN</ps:hairColor>
+                <ps:eyeColor>BROWN</ps:eyeColor>
+                <ps:nationality>SPAIN</ps:nationality>
+                <ps:height>180</ps:height>
+                <ps:location>
+                    <ps:x>10</ps:x>
+                    <ps:y>20</ps:y>
+                    <ps:z>30.0</ps:z>
+                    <ps:name>St. Petersburg</ps:name>
+                </ps:location>
+            </ps:person>
+        </ps:updatePersonRequest>
+    </soapenv:Body>
+</soapenv:Envelope>

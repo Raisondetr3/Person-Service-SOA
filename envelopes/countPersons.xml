@@ -1,0 +1,7 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:ps="http://itmo.ru/person-service">
+    <soapenv:Header/>
+    <soapenv:Body>
+        <ps:countPersonsRequest/>
+    </soapenv:Body>
+</soapenv:Envelope>

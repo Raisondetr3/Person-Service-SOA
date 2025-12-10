@@ -1,0 +1,27 @@
+<soapenv:Envelope
+        xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+        xmlns:ps="http://itmo.ru/person-service">
+    <soapenv:Header/>
+    <soapenv:Body>
+        <ps:searchPersonsRequest>
+            <ps:filters>
+                <ps:field>name</ps:field>
+                <ps:operator>LIKE</ps:operator>
+                <ps:value>John</ps:value>
+            </ps:filters>
+            <ps:filters>
+                <ps:field>weight</ps:field>
+                <ps:operator>GT</ps:operator>
+                <ps:value>70</ps:value>
+            </ps:filters>
+            <ps:pageRequest>
+                <ps:page>0</ps:page>
+                <ps:size>4</ps:size>
+                <ps:sort>
+                    <ps:property>name</ps:property>
+                    <ps:direction>ASC</ps:direction>
+                </ps:sort>
+            </ps:pageRequest>
+        </ps:searchPersonsRequest>
+    </soapenv:Body>
+</soapenv:Envelope>

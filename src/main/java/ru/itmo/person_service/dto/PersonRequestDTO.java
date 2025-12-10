@@ -15,9 +15,6 @@ public record PersonRequestDTO(
         LocationDTO location
 ) {
     public Person toPerson() {
-        if (weight == null) {
-
-        }
         return new Person(
                 null,
                 name,

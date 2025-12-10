@@ -1,0 +1,10 @@
+<soapenv:Envelope
+        xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+        xmlns:ps="http://itmo.ru/person-service">
+    <soapenv:Header/>
+    <soapenv:Body>
+        <ps:findPersonsByNationalityLessThanRequest>
+            <ps:nationality>INDIA</ps:nationality>
+        </ps:findPersonsByNationalityLessThanRequest>
+    </soapenv:Body>
+</soapenv:Envelope>
