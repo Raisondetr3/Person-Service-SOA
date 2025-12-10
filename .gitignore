@@ -39,6 +39,7 @@ build/
 
 # Keystores
 *.p12
+*.pem
 *.jks
 *.keystore
 keystore.*
