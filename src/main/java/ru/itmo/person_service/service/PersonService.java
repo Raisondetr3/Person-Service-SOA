@@ -65,7 +65,7 @@ public class PersonService {
                 if (value == null || value.trim().isEmpty()) return;
 
                 try {
-                    FilterConfig filterConfig = parseFilterKey(filterKey);
+                    FilterConfig filterConfig = parseFilterKey(filterKey.toLowerCase());
                     Path<Object> path = getFieldPath(root, filterConfig.fieldName);
 
                     if (path == null) {
