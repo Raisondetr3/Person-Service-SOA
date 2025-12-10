@@ -68,13 +68,9 @@ public class PersonSoapEndpoint {
         return response;
     }
 
-    //TODO:
     @PayloadRoot(namespace = NAMESPACE_URI, localPart = "searchPersonsRequest")
     @ResponsePayload
-    public PagedResponse searchPersons(@RequestPayload SearchCriteria request) {
-        System.out.println("✅ searchPersons called!");
-
-
+    public JAXBElement<PagedResponse> searchPersons(@RequestPayload SearchCriteria request) {
         Map<String, String> filterMap = request.getFilters().stream()
                 .collect(Collectors.toMap(
                         f -> f.getField() + "[" + f.getOperator() + "]",
@@ -99,7 +95,7 @@ public class PersonSoapEndpoint {
         paged.setHasNext(page.hasNext());
         paged.setHasPrevious(page.hasPrevious());
 
-        return paged;
+        return objectFactory.createSearchPersonsResponse(paged);
     }
 
     @PayloadRoot(namespace = NAMESPACE_URI, localPart = "countPersonsRequest")
