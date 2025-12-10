@@ -54,18 +54,3 @@ CLAUDE.md
 .claude
 
 k8s.md
-application-helios.properties
-application-helios-instance3.properties
-application-helios-instance2.properties
-AUTO_REGISTRATION_GUIDE.md
-check-status.sh
-debug-auto-registration.sh
-quick-start.sh
-shutdown.sh
-start-ssh-tunnel.sh
-start-tunnel-with-retry.sh
-STARTUP_GUIDE.md
-test-reverse-tunnel.sh
-TROUBLESHOOTING.md
-watch-registration.sh
--
