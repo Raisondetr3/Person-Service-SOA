@@ -1,0 +1,422 @@
+#%RAML 1.0
+title: Person Service REST API
+version: v1
+baseUri: http://localhost:58081
+mediaType: application/json
+
+types:
+  Coordinates:
+    type: object
+    properties:
+      x:
+        type: integer
+        format: long
+        required: true
+      y:
+        type: integer
+        format: long
+        required: true
+
+  Location:
+    type: object
+    properties:
+      x?:
+        type: integer
+        required: false
+      y?:
+        type: number
+        format: double
+        required: false
+      z?:
+        type: number
+        format: double
+        required: false
+      name?:
+        type: string
+        required: false
+
+  ColorEnum:
+    type: string
+    enum: [GREEN, BLUE, ORANGE, BROWN]
+
+  CountryEnum:
+    type: string
+    enum: [FRANCE, SPAIN, INDIA, THAILAND, SOUTH_KOREA]
+
+  PersonRequest:
+    type: object
+    properties:
+      name:
+        type: string
+        required: true
+      coordinates:
+        type: Coordinates
+        required: true
+      height?:
+        type: integer
+        format: long
+        required: false
+      weight:
+        type: number
+        format: float
+        required: true
+      hairColor:
+        type: ColorEnum
+        required: true
+      eyeColor:
+        type: ColorEnum
+        required: true
+      nationality:
+        type: CountryEnum
+        required: true
+      location?:
+        type: Location
+        required: false
+
+  Person:
+    type: object
+    properties:
+      id:
+        type: integer
+        required: true
+      name:
+        type: string
+        required: true
+      coordinates:
+        type: Coordinates
+        required: true
+      creationDate:
+        type: datetime
+        required: true
+      height?:
+        type: integer
+        format: long
+        required: false
+      weight:
+        type: number
+        format: float
+        required: true
+      hairColor:
+        type: ColorEnum
+        required: true
+      eyeColor:
+        type: ColorEnum
+        required: true
+      nationality:
+        type: CountryEnum
+        required: true
+      location?:
+        type: Location
+        required: false
+
+  PersonArray:
+    type: array
+    items: Person
+
+  ErrorResponse:
+    type: object
+    properties:
+      error:
+        type: string
+        required: true
+      message:
+        type: string
+        required: true
+      timestamp:
+        type: datetime
+        required: true
+      path:
+        type: string
+        required: true
+
+/persons:
+  get:
+    displayName: Get All Persons
+    description: |
+      Retrieve a paginated list of persons with optional filtering and sorting.
+
+      ## Query Parameters:
+      - **page**: Page number (0-based, default: 0)
+      - **size**: Number of items per page (default: 4)
+      - **sortBy**: Sort fields (e.g., 'name', '-weight' for descending)
+      - **filter**: Filter conditions in format fieldName[operator]=value
+
+      ## Filtering Operators:
+      - eq (equal), ne (not equal), gt (greater than), gte (>=)
+      - lt (less than), lte (<=), like (contains substring)
+
+      ## Response Headers:
+      - X-Total-Count: Total number of persons
+      - X-Total-Pages: Total number of pages
+      - X-Current-Page: Current page number
+      - X-Page-Size: Page size
+      - X-Has-Next: Whether next page exists
+      - X-Has-Previous: Whether previous page exists
+
+    queryParameters:
+      page:
+        type: integer
+        required: false
+        default: 0
+        minimum: 0
+        description: Page number (0-based)
+        example: 0
+
+      size:
+        type: integer
+        required: false
+        default: 4
+        minimum: 1
+        maximum: 1000000000
+        description: Number of items per page
+        example: 4
+
+      sortBy:
+        type: string[]
+        required: false
+        description: |
+          Field(s) to sort by. Prefix with '-' for descending order.
+          Multiple fields supported.
+        example: ["name", "-weight"]
+
+      filter:
+        type: string[]
+        required: false
+        description: |
+          Filter conditions in format: fieldName[operator]=value
+          Examples: name[like]=John, weight[gt]=70
+        example: ["name[like]=John", "weight[gt]=70"]
+
+    responses:
+      200:
+        description: Successfully retrieved persons
+        headers:
+          X-Total-Count:
+            type: integer
+            description: Total number of persons
+            example: 100
+          X-Total-Pages:
+            type: integer
+            description: Total number of pages
+            example: 25
+          X-Current-Page:
+            type: integer
+            description: Current page number (0-based)
+            example: 0
+          X-Page-Size:
+            type: integer
+            description: Page size
+            example: 4
+          X-Has-Next:
+            type: boolean
+            description: Whether next page exists
+            example: true
+          X-Has-Previous:
+            type: boolean
+            description: Whether previous page exists
+            example: false
+        body:
+          application/json:
+            type: PersonArray
+            example: |
+              [
+                {
+                  "id": 1,
+                  "name": "John Doe",
+                  "coordinates": {
+                    "x": 45,
+                    "y": 90
+                  },
+                  "creationDate": "2024-01-15T10:30:00Z",
+                  "height": 180,
+                  "weight": 75.5,
+                  "hairColor": "BROWN",
+                  "eyeColor": "BLUE",
+                  "nationality": "SPAIN",
+                  "location": {
+                    "x": 10,
+                    "y": 20.5,
+                    "z": 30.0,
+                    "name": "Madrid"
+                  }
+                }
+              ]
+
+      400:
+        description: Invalid request parameters
+        body:
+          application/json:
+            type: ErrorResponse
+            example: |
+              {
+                "error": "INVALID_REQUEST_PARAMETER",
+                "message": "Page number must be non-negative",
+                "timestamp": "2024-12-11T10:30:00Z",
+                "path": "/persons"
+              }
+  /{id}:
+    uriParameters:
+      id:
+        type: integer
+        required: true
+        description: Unique identifier of the person
+        example: 1
+
+    get:
+      displayName: Get Person By ID
+      description: Retrieve a single person by their unique identifier
+
+      responses:
+        200:
+          description: Person retrieved successfully
+          body:
+            application/json:
+              type: Person
+              example: |
+                {
+                  "id": 1,
+                  "name": "John Doe",
+                  "coordinates": {
+                    "x": 45,
+                    "y": 90
+                  },
+                  "creationDate": "2024-01-15T10:30:00Z",
+                  "height": 180,
+                  "weight": 75.5,
+                  "hairColor": "BROWN",
+                  "eyeColor": "BLUE",
+                  "nationality": "SPAIN",
+                  "location": {
+                    "x": 10,
+                    "y": 20.5,
+                    "z": 30.0,
+                    "name": "Madrid"
+                  }
+                }
+
+        404:
+          description: Person not found
+          body:
+            application/json:
+              type: ErrorResponse
+              example: |
+                {
+                  "error": "PERSON_NOT_FOUND",
+                  "message": "Person with id 1 not found",
+                  "timestamp": "2024-12-12T10:30:00Z",
+                  "path": "/persons/1"
+                }
+
+        400:
+          description: Invalid ID format
+          body:
+            application/json:
+              type: ErrorResponse
+              example: |
+                {
+                  "error": "INVALID_ID",
+                  "message": "ID must be a positive integer",
+                  "timestamp": "2024-12-12T10:30:00Z",
+                  "path": "/persons/abc"
+                }
+
+    put:
+      displayName: Update Person
+      description: Update an existing person by ID
+
+      body:
+        application/json:
+          type: Person
+          example: |
+            {
+              "id": 1,
+              "name": "John Updated",
+              "coordinates": {
+                "x": 50,
+                "y": 100
+              },
+              "creationDate": "2024-01-15T10:30:00Z",
+              "height": 185,
+              "weight": 80.0,
+              "hairColor": "BLUE",
+              "eyeColor": "GREEN",
+              "nationality": "FRANCE",
+              "location": {
+                "x": 20,
+                "y": 30.5,
+                "z": 40.0,
+                "name": "Paris"
+              }
+            }
+
+      responses:
+        200:
+          description: Person updated successfully
+          body:
+            application/json:
+              type: Person
+
+        404:
+          description: Person not found
+          body:
+            application/json:
+              type: ErrorResponse
+              example: |
+                {
+                  "error": "PERSON_NOT_FOUND",
+                  "message": "Person with id 1 not found",
+                  "timestamp": "2024-12-12T10:30:00Z",
+                  "path": "/persons/1"
+                }
+
+        400:
+          description: Invalid request data
+          body:
+            application/json:
+              type: ErrorResponse
+
+    delete:
+      displayName: Delete Person
+      description: Delete a person by ID
+
+      responses:
+        200:
+          description: Person deleted successfully
+          body:
+            application/json:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                  required: true
+              example: |
+                {
+                  "success": true
+                }
+
+        404:
+          description: Person not found
+          body:
+            application/json:
+              type: ErrorResponse
+              example: |
+                {
+                  "error": "PERSON_NOT_FOUND",
+                  "message": "Person with id 1 not found",
+                  "timestamp": "2024-12-12T10:30:00Z",
+                  "path": "/persons/1"
+                }
+
+  /count:
+    get:
+      displayName: Get Persons Count
+      description: Retrieve the total number of persons in the collection
+
+      responses:
+        200:
+          description: Count retrieved successfully
+          body:
+            application/json:
+              type: integer
+              format: long
+              example: 42

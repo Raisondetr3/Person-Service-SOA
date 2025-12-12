@@ -1,0 +1,812 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:wsc="http://www.mulesoft.org/schema/mule/wsc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/wsc http://www.mulesoft.org/schema/mule/wsc/current/mule-wsc.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd">
+    <http:listener-config name="person-service-rest-api-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="58082" />
+    </http:listener-config>
+    <apikit:config name="person-service-rest-api-config" api="person-service-rest-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <wsc:config name="Web_Service_Consumer_Config" doc:name="Web Service Consumer Config" doc:id="500f0b8f-c7ae-4511-b883-fe88692fcb0d" >
+        <wsc:connection
+                wsdlLocation="http://localhost:58080/soap/PersonService.wsdl"
+                service="PersonServicePortService"
+                port="PersonServicePortSoap11"
+                address="http://localhost:58080/soap/PersonService">
+            <wsc:custom-transport-configuration>
+                <wsc:http-transport-configuration requesterConfig="HTTP_Request_configuration" />
+            </wsc:custom-transport-configuration>
+        </wsc:connection>
+    </wsc:config>
+    <http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="becdbf73-7e44-48ff-a587-3ce9320ac4cc" basePath="/soap">
+        <http:request-connection host="localhost" port="58080" />
+    </http:request-config>
+    <flow name="person-service-rest-api-main">
+        <http:listener config-ref="person-service-rest-api-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="person-service-rest-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <flow name="get:\persons:person-service-rest-api-config">
+        <logger level="INFO" message="Incoming REST GET /persons" doc:name="Log incoming"/>
+
+        <ee:transform doc:name="Extract query parameters">
+            <ee:variables>
+                <ee:set-variable variableName="page"><![CDATA[%dw 2.0
+output application/java
+---
+attributes.queryParams.page default "0"]]></ee:set-variable>
+                <ee:set-variable variableName="size"><![CDATA[%dw 2.0
+output application/java
+---
+attributes.queryParams.size default "1000000000"]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+
+        <logger level="INFO" message="Query params: page=#[vars.page], size=#[vars.size]" doc:name="Log params"/>
+
+        <ee:transform doc:name="Build SOAP searchPersons Request">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+	output application/xml
+	ns ps http://itmo.ru/person-service
+	---
+	ps#searchPersonsRequest: {
+		ps#pageRequest: {
+			ps#page: vars.page as Number,
+			ps#size: vars.size as Number
+		}
+	}
+	]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+
+        <logger level="INFO"
+                doc:name="Log SOAP request"
+                message="SOAP Request XML: #[write(payload, 'application/xml')]"/>
+
+        <wsc:consume config-ref="Web_Service_Consumer_Config"
+                     operation="searchPersons"
+                     doc:name="Call person-service SOAP"/>
+
+        <logger level="INFO"
+                doc:name="Log SOAP response"
+                message="SOAP Response: #[write(payload.body, 'application/xml')]"/>
+
+        <ee:transform doc:name="SOAP Response -> JSON Array">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+	output application/json
+
+	var xmlBody = write(payload.body, "application/xml")
+	var contentPattern = /<(?:\w+:)?content[^>]*>([\s\S]*?)<\/(?:\w+:)?content>/
+	var allContent = (xmlBody scan contentPattern) map ((match) -> match[1])
+
+	fun extractTag(xml: String, tagName: String): String | Null = do {
+		var pattern = "<(?:\\w+:)?" ++ tagName ++ "[^>]*>(.*?)</(?:\\w+:)?" ++ tagName ++ ">"
+		var matches = (xml scan pattern)
+		---
+		if (matches[0]?) matches[0][1] else null
+	}
+
+	fun parseLocation(locationXml: String): Object = {
+		x: extractTag(locationXml, "x") as Number default null,
+		y: extractTag(locationXml, "y") as Number default null,
+		z: extractTag(locationXml, "z") as Number default null,
+		name: extractTag(locationXml, "name") default null
+	}
+
+	fun parseCoordinates(coordXml: String): Object = {
+		x: extractTag(coordXml, "x") as Number,
+		y: extractTag(coordXml, "y") as Number
+	}
+
+	fun parsePerson(personXml: String): Object = do {
+		var locationXml = (personXml scan /<(?:\w+:)?location[^>]*>([\s\S]*?)<\/(?:\w+:)?location>/)
+		var coordXml = (personXml scan /<(?:\w+:)?coordinates[^>]*>([\s\S]*?)<\/(?:\w+:)?coordinates>/)
+		var rawCreationDate = extractTag(personXml, "creationDate")
+		var cleanCreationDate = if (rawCreationDate != null) (rawCreationDate splitBy /[\+\-]\d{2}:\d{2}/)[0] else null
+		---
+		{
+			id: extractTag(personXml, "id") as Number,
+			name: extractTag(personXml, "name"),
+			coordinates: if (coordXml[0]?) parseCoordinates(coordXml[0][1]) else null,
+			creationDate: cleanCreationDate,
+			height: extractTag(personXml, "height") as Number default null,
+			weight: extractTag(personXml, "weight") as Number,
+			hairColor: extractTag(personXml, "hairColor"),
+			eyeColor: extractTag(personXml, "eyeColor"),
+			nationality: extractTag(personXml, "nationality"),
+			location: if (locationXml[0]?) parseLocation(locationXml[0][1]) else null
+		}
+	}
+	---
+	allContent map parsePerson($)
+	]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+
+        <set-variable doc:name="Set outbound Content-Type header"
+                      variableName="outboundHeaders"
+                      value="#[(vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'}]"/>
+
+        <logger level="INFO" message="Returning JSON response: #[payload]" doc:name="Log response"/>
+
+        <error-handler>
+            <on-error-propagate type="WSC:CANNOT_DISPATCH">
+                <ee:transform doc:name="Build WSC dispatch error response">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+	output application/json
+	---
+	{
+	  error: "BACKEND_UNAVAILABLE",
+	  message: "person-service (SOAP) is unavailable",
+	  timestamp: now(),
+	  path: attributes.requestPath,
+	  details: (error.description default (error as String))
+	}
+	]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">502</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers"/>
+            </on-error-propagate>
+
+            <on-error-propagate type="HTTP:CONNECTIVITY">
+                <ee:transform doc:name="Build HTTP connectivity response">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+	output application/json
+	---
+	{
+	  error: "BACKEND_CONNECTIVITY",
+	  message: "Cannot connect to person-service (SOAP)",
+	  timestamp: now(),
+	  path: attributes.requestPath,
+	  details: (error.description default (error as String))
+	}
+	]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">502</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers"/>
+            </on-error-propagate>
+
+            <on-error-propagate type="ANY">
+                <ee:transform doc:name="Build generic error response">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+	output application/json
+	---
+	{
+	  error: "INTERNAL_ERROR",
+	  message: "An internal error occurred while processing the request",
+	  timestamp: now(),
+	  path: attributes.requestPath,
+	  details: (error.description default (error as String))
+	}
+	]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">500</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers"/>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+
+
+
+
+
+
+
+    <flow name="get:\persons\(id):person-service-rest-api-config">
+        <logger level="INFO" message="Incoming REST GET /persons/{id} with id=#[attributes.uriParams.'id']" doc:name="Log incoming request"/>
+
+        <ee:transform doc:name="Extract id parameter">
+            <ee:variables>
+                <ee:set-variable variableName="personId"><![CDATA[%dw 2.0
+output application/java
+---
+attributes.uriParams.'id' as Number]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+
+        <ee:transform doc:name="Build SOAP getPersonById Request">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ps http://itmo.ru/person-service
+---
+ps#getPersonByIdRequest: {
+    ps#id: vars.personId
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+
+        <logger level="INFO" message="SOAP Request XML: #[write(payload, 'application/xml')]" doc:name="Log SOAP request"/>
+
+        <wsc:consume config-ref="Web_Service_Consumer_Config" operation="getPersonById" doc:name="Call SOAP getPersonById"/>
+
+        <logger level="INFO" message="SOAP Response: #[write(payload.body, 'application/xml')]" doc:name="Log SOAP response"/>
+
+        <ee:transform doc:name="SOAP Response -> JSON">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+
+fun extractTag(xml: String, tagName: String): String | Null = do {
+    var pattern = "<(?:\\w+:)?" ++ tagName ++ "[^>]*>(.*?)</(?:\\w+:)?" ++ tagName ++ ">"
+    var matches = (xml scan pattern)
+    ---
+    if (matches[0]?) matches[0][1] else null
+}
+
+fun parseCoordinates(coordXml: String): Object | Null = do {
+    if (coordXml == null) null
+    else {
+        x: extractTag(coordXml, "x") as Number,
+        y: extractTag(coordXml, "y") as Number
+    }
+}
+
+fun parseLocation(locXml: String): Object | Null = do {
+    if (locXml == null) null
+    else {
+        x: extractTag(locXml, "x") as Number,
+        y: extractTag(locXml, "y") as Number,
+        z: extractTag(locXml, "z") as Number,
+        name: extractTag(locXml, "name")
+    }
+}
+---
+do {
+    var xmlBody = write(payload.body, "application/xml")
+
+    var personPattern = /<(?:\w+:)?getPersonByIdResponse[^>]*>([\s\S]*?)<\/(?:\w+:)?getPersonByIdResponse>/
+    var personXml = (xmlBody scan personPattern)[0][1]
+
+    var coordPattern = /<(?:\w+:)?coordinates[^>]*>([\s\S]*?)<\/(?:\w+:)?coordinates>/
+    var coordXml = (personXml scan coordPattern)[0][1]
+
+    var locPattern = /<(?:\w+:)?location[^>]*>([\s\S]*?)<\/(?:\w+:)?location>/
+    var locMatches = personXml scan locPattern
+    var locXml = if (sizeOf(locMatches) > 0) locMatches[0][1] else null
+
+    var rawCreationDate = extractTag(personXml, "creationDate")
+    var cleanCreationDate = if (rawCreationDate != null)
+        (rawCreationDate splitBy /[\+\-]\d{2}:\d{2}/)[0]
+        else null
+
+    var heightValue = extractTag(personXml, "height")
+    ---
+    {
+        id: extractTag(personXml, "id") as Number,
+        name: extractTag(personXml, "name"),
+        coordinates: parseCoordinates(coordXml),
+        creationDate: cleanCreationDate,
+        height: if (heightValue != null and heightValue != "") heightValue as Number else null,
+        weight: extractTag(personXml, "weight") as Number,
+        hairColor: extractTag(personXml, "hairColor"),
+        eyeColor: extractTag(personXml, "eyeColor"),
+        nationality: extractTag(personXml, "nationality"),
+        location: parseLocation(locXml)
+    }
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="outboundHeaders"><![CDATA[%dw 2.0
+output application/java
+---
+{
+    "Content-Type": "application/json"
+}]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+
+        <error-handler>
+            <on-error-propagate type="WSC:CANNOT_DISPATCH" enableNotifications="true" logException="true" doc:name="On Error Propagate - Person Not Found">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "PERSON_NOT_FOUND",
+  message: "Person with id " ++ (vars.personId as String) ++ " not found",
+  timestamp: now(),
+  path: attributes.requestPath
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers (404)"/>
+            </on-error-propagate>
+
+            <on-error-propagate type="HTTP:CONNECTIVITY" enableNotifications="true" logException="true" doc:name="On Error Propagate - Connectivity Error">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "SOAP_BACKEND_UNAVAILABLE",
+  message: "Cannot connect to the SOAP backend service",
+  timestamp: now(),
+  path: attributes.requestPath,
+  details: error.description
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">502</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers (502)"/>
+            </on-error-propagate>
+
+            <on-error-propagate type="ANY" enableNotifications="true" logException="true" doc:name="On Error Propagate - Internal Error">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "INTERNAL_ERROR",
+  message: "An internal error occurred while fetching person",
+  timestamp: now(),
+  path: attributes.requestPath,
+  details: (error.description default (error as String))
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">500</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers (500)"/>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+
+    <flow name="put:\persons\(id):person-service-rest-api-config">
+        <logger level="INFO" message="Incoming REST PUT /persons/{id} with id=#[attributes.uriParams.'id']" doc:name="Log incoming request"/>
+
+        <ee:transform doc:name="Extract id and build SOAP request">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ps http://itmo.ru/person-service
+---
+ps#updatePersonRequest: {
+    ps#id: attributes.uriParams.'id' as Number,
+    ps#person: {
+        ps#name: payload.name,
+        ps#coordinates: {
+            ps#x: payload.coordinates.x,
+            ps#y: payload.coordinates.y
+        },
+        ps#height: payload.height,
+        ps#weight: payload.weight,
+        ps#hairColor: payload.hairColor,
+        ps#eyeColor: payload.eyeColor,
+        ps#nationality: payload.nationality,
+        ps#location: if (payload.location != null) {
+            ps#x: payload.location.x,
+            ps#y: payload.location.y,
+            ps#z: payload.location.z,
+            ps#name: payload.location.name
+        } else null
+    }
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="personId"><![CDATA[%dw 2.0
+output application/java
+---
+attributes.uriParams.'id' as Number]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+
+        <logger level="INFO" message="SOAP Request XML: #[write(payload, 'application/xml')]" doc:name="Log SOAP request"/>
+
+        <wsc:consume config-ref="Web_Service_Consumer_Config" operation="updatePerson" doc:name="Call SOAP updatePerson"/>
+
+        <logger level="INFO" message="SOAP Response: #[write(payload.body, 'application/xml')]" doc:name="Log SOAP response"/>
+
+        <ee:transform doc:name="SOAP Response -> JSON">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+
+fun extractTag(xml: String, tagName: String): String | Null = do {
+    var pattern = "<(?:\\w+:)?" ++ tagName ++ "[^>]*>(.*?)</(?:\\w+:)?" ++ tagName ++ ">"
+    var matches = (xml scan pattern)
+    ---
+    if (matches[0]?) matches[0][1] else null
+}
+
+fun parseCoordinates(coordXml: String): Object | Null = do {
+    if (coordXml == null) null
+    else {
+        x: extractTag(coordXml, "x") as Number,
+        y: extractTag(coordXml, "y") as Number
+    }
+}
+
+fun parseLocation(locXml: String): Object | Null = do {
+    if (locXml == null) null
+    else {
+        x: extractTag(locXml, "x") as Number,
+        y: extractTag(locXml, "y") as Number,
+        z: extractTag(locXml, "z") as Number,
+        name: extractTag(locXml, "name")
+    }
+}
+---
+do {
+    var xmlBody = write(payload.body, "application/xml")
+
+    var personPattern = /<(?:\w+:)?updatePersonResponse[^>]*>([\s\S]*?)<\/(?:\w+:)?updatePersonResponse>/
+    var personXml = (xmlBody scan personPattern)[0][1]
+
+    var coordPattern = /<(?:\w+:)?coordinates[^>]*>([\s\S]*?)<\/(?:\w+:)?coordinates>/
+    var coordXml = (personXml scan coordPattern)[0][1]
+
+    var locPattern = /<(?:\w+:)?location[^>]*>([\s\S]*?)<\/(?:\w+:)?location>/
+    var locMatches = personXml scan locPattern
+    var locXml = if (sizeOf(locMatches) > 0) locMatches[0][1] else null
+
+    var rawCreationDate = extractTag(personXml, "creationDate")
+    var cleanCreationDate = if (rawCreationDate != null)
+        (rawCreationDate splitBy /[\+\-]\d{2}:\d{2}/)[0]
+        else null
+
+    var heightValue = extractTag(personXml, "height")
+    ---
+    {
+        id: extractTag(personXml, "id") as Number,
+        name: extractTag(personXml, "name"),
+        coordinates: parseCoordinates(coordXml),
+        creationDate: cleanCreationDate,
+        height: if (heightValue != null and heightValue != "") heightValue as Number else null,
+        weight: extractTag(personXml, "weight") as Number,
+        hairColor: extractTag(personXml, "hairColor"),
+        eyeColor: extractTag(personXml, "eyeColor"),
+        nationality: extractTag(personXml, "nationality"),
+        location: parseLocation(locXml)
+    }
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="outboundHeaders"><![CDATA[%dw 2.0
+output application/java
+---
+{
+    "Content-Type": "application/json"
+}]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+
+        <error-handler>
+            <on-error-propagate type="WSC:CANNOT_DISPATCH" enableNotifications="true" logException="true" doc:name="On Error Propagate - Person Not Found">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "PERSON_NOT_FOUND",
+  message: "Person with id " ++ (vars.personId as String) ++ " not found",
+  timestamp: now(),
+  path: attributes.requestPath
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers (404)"/>
+            </on-error-propagate>
+
+            <on-error-propagate type="HTTP:CONNECTIVITY" enableNotifications="true" logException="true" doc:name="On Error Propagate - Connectivity Error">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "SOAP_BACKEND_UNAVAILABLE",
+  message: "Cannot connect to the SOAP backend service",
+  timestamp: now(),
+  path: attributes.requestPath,
+  details: error.description
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">502</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers (502)"/>
+            </on-error-propagate>
+
+            <on-error-propagate type="ANY" enableNotifications="true" logException="true" doc:name="On Error Propagate - Internal Error">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "INTERNAL_ERROR",
+  message: "An internal error occurred while updating person",
+  timestamp: now(),
+  path: attributes.requestPath,
+  details: (error.description default (error as String))
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">500</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers (500)"/>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+
+    <flow name="delete:\persons\(id):person-service-rest-api-config">
+        <logger level="INFO" message="Incoming REST DELETE /persons/{id} with id=#[attributes.uriParams.'id']" doc:name="Log incoming request"/>
+
+        <ee:transform doc:name="Extract id and build SOAP request">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ps http://itmo.ru/person-service
+---
+ps#deletePersonRequest: {
+    ps#id: attributes.uriParams.'id' as Number
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="personId"><![CDATA[%dw 2.0
+output application/java
+---
+attributes.uriParams.'id' as Number]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+
+        <logger level="INFO" message="SOAP Request XML: #[write(payload, 'application/xml')]" doc:name="Log SOAP request"/>
+
+        <wsc:consume config-ref="Web_Service_Consumer_Config" operation="deletePerson" doc:name="Call SOAP deletePerson"/>
+
+        <logger level="INFO" message="SOAP Response: #[write(payload.body, 'application/xml')]" doc:name="Log SOAP response"/>
+
+        <ee:transform doc:name="SOAP Response -> JSON">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+
+fun extractTag(xml: String, tagName: String): String | Null = do {
+    var pattern = "<(?:\\w+:)?" ++ tagName ++ "[^>]*>(.*?)</(?:\\w+:)?" ++ tagName ++ ">"
+    var matches = (xml scan pattern)
+    ---
+    if (matches[0]?) matches[0][1] else null
+}
+---
+do {
+    var xmlBody = write(payload.body, "application/xml")
+    var successValue = extractTag(xmlBody, "success")
+    ---
+    {
+        success: if (successValue != null) (successValue as Boolean) else false
+    }
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="outboundHeaders"><![CDATA[%dw 2.0
+output application/java
+---
+{
+    "Content-Type": "application/json"
+}]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+
+        <error-handler>
+            <on-error-propagate type="WSC:CANNOT_DISPATCH" enableNotifications="true" logException="true" doc:name="On Error Propagate - Person Not Found">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "PERSON_NOT_FOUND",
+  message: "Person with id " ++ (vars.personId as String) ++ " not found",
+  timestamp: now(),
+  path: attributes.requestPath
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers (404)"/>
+            </on-error-propagate>
+
+            <on-error-propagate type="HTTP:CONNECTIVITY" enableNotifications="true" logException="true" doc:name="On Error Propagate - Connectivity Error">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "SOAP_BACKEND_UNAVAILABLE",
+  message: "Cannot connect to the SOAP backend service",
+  timestamp: now(),
+  path: attributes.requestPath,
+  details: error.description
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">502</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers (502)"/>
+            </on-error-propagate>
+
+            <on-error-propagate type="ANY" enableNotifications="true" logException="true" doc:name="On Error Propagate - Internal Error">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "INTERNAL_ERROR",
+  message: "An internal error occurred while deleting person",
+  timestamp: now(),
+  path: attributes.requestPath,
+  details: (error.description default (error as String))
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">500</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers (500)"/>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+
+
+</mule>
+
