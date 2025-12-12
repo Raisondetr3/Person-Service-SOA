@@ -1,7 +1,7 @@
 #%RAML 1.0
 title: Person Service REST API
 version: v1
-baseUri: http://localhost:58081
+baseUri: https://localhost:58082
 mediaType: application/json
 
 types:
@@ -254,6 +254,14 @@ types:
                 "timestamp": "2024-12-11T10:30:00Z",
                 "path": "/persons"
               }
+
+  options:
+    displayName: CORS Preflight for /persons
+    description: Handle CORS preflight requests
+    responses:
+      200:
+        description: CORS headers returned
+
   /{id}:
     uriParameters:
       id:
@@ -326,16 +334,14 @@ types:
 
       body:
         application/json:
-          type: Person
+          type: PersonRequest
           example: |
             {
-              "id": 1,
               "name": "John Updated",
               "coordinates": {
                 "x": 50,
                 "y": 100
               },
-              "creationDate": "2024-01-15T10:30:00Z",
               "height": 185,
               "weight": 80.0,
               "hairColor": "BLUE",
@@ -380,32 +386,28 @@ types:
       description: Delete a person by ID
 
       responses:
-        200:
-          description: Person deleted successfully
-          body:
-            application/json:
-              type: object
-              properties:
-                success:
-                  type: boolean
-                  required: true
-              example: |
-                {
-                  "success": true
-                }
+        204:
+          description: Person deleted successfully (No Content)
 
-        404:
-          description: Person not found
+        500:
+          description: Service unavailable or internal error
           body:
             application/json:
               type: ErrorResponse
               example: |
                 {
-                  "error": "PERSON_NOT_FOUND",
-                  "message": "Person with id 1 not found",
+                  "error": "SERVICE_UNAVAILABLE",
+                  "message": "Cannot connect to the backend service",
                   "timestamp": "2024-12-12T10:30:00Z",
                   "path": "/persons/1"
                 }
+
+    options:
+      displayName: CORS Preflight for /persons/{id}
+      description: Handle CORS preflight requests
+      responses:
+        200:
+          description: CORS headers returned
 
   /count:
     get:
