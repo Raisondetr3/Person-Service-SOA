@@ -255,6 +255,43 @@ types:
                 "path": "/persons"
               }
 
+  post:
+    displayName: Create Person
+    description: Create a new person
+    body:
+      application/json:
+        type: PersonRequest
+        example: |
+          {
+            "name": "John Doe",
+            "coordinates": {
+              "x": 45,
+              "y": 90
+            },
+            "height": 180,
+            "weight": 75.5,
+            "hairColor": "BROWN",
+            "eyeColor": "BLUE",
+            "nationality": "SPAIN",
+            "location": {
+              "x": 10,
+              "y": 20.5,
+              "z": 30.0,
+              "name": "Madrid"
+            }
+          }
+    responses:
+      201:
+        description: Person created successfully
+        body:
+          application/json:
+            type: Person
+      400:
+        description: Invalid request data
+        body:
+          application/json:
+            type: ErrorResponse
+
   options:
     displayName: CORS Preflight for /persons
     description: Handle CORS preflight requests
@@ -422,3 +459,36 @@ types:
               type: integer
               format: long
               example: 42
+
+  /exists/{id}:
+    uriParameters:
+      id:
+        type: integer
+        required: true
+        description: Unique identifier of the person to check
+        example: 1
+
+    get:
+      displayName: Check If Person Exists
+      description: Check whether a person with the given ID exists in the collection
+
+      responses:
+        200:
+          description: Existence check completed successfully
+          body:
+            application/json:
+              type: boolean
+              example: true
+
+        400:
+          description: Invalid ID format
+          body:
+            application/json:
+              type: ErrorResponse
+              example: |
+                {
+                  "error": "INVALID_ID",
+                  "message": "ID must be a positive integer",
+                  "timestamp": "2024-12-13T10:30:00Z",
+                  "path": "/persons/exists/abc"
+                }
