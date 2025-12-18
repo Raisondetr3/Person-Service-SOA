@@ -487,8 +487,76 @@ types:
               type: ErrorResponse
               example: |
                 {
-                  "error": "INVALID_ID",
+                  "error": "VALIDATION_ERROR",
                   "message": "ID must be a positive integer",
                   "timestamp": "2024-12-13T10:30:00Z",
                   "path": "/persons/exists/abc"
+                }
+
+  /hair-color/{hairColor}:
+    uriParameters:
+      hairColor:
+        type: ColorEnum
+        required: true
+        description: Hair color to filter by
+        example: BROWN
+
+    delete:
+      displayName: Delete Person By Hair Color
+      description: Delete the first person with the specified hair color
+
+      responses:
+        204:
+          description: Person deleted successfully (No Content)
+
+        404:
+          description: No person found with the specified hair color
+          body:
+            application/json:
+              type: ErrorResponse
+              example: |
+                {
+                  "error": "PERSON_NOT_FOUND",
+                  "message": "No person found with hair color BROWN",
+                  "timestamp": "2024-12-19T10:30:00Z",
+                  "path": "/persons/hair-color/BROWN"
+                }
+
+        400:
+          description: Invalid hair color value
+          body:
+            application/json:
+              type: ErrorResponse
+              example: |
+                {
+                  "error": "VALIDATION_ERROR",
+                  "message": "Invalid hair color. Must be one of: GREEN, BLUE, ORANGE, BROWN",
+                  "timestamp": "2024-12-19T10:30:00Z",
+                  "path": "/persons/hair-color/INVALID"
+                }
+
+        502:
+          description: Service unavailable
+          body:
+            application/json:
+              type: ErrorResponse
+              example: |
+                {
+                  "error": "SERVICE_UNAVAILABLE",
+                  "message": "Cannot connect to the backend service",
+                  "timestamp": "2024-12-19T10:30:00Z",
+                  "path": "/persons/hair-color/BROWN"
+                }
+
+        500:
+          description: Internal server error
+          body:
+            application/json:
+              type: ErrorResponse
+              example: |
+                {
+                  "error": "INTERNAL_ERROR",
+                  "message": "An internal error occurred while deleting person by hair color",
+                  "timestamp": "2024-12-19T10:30:00Z",
+                  "path": "/persons/hair-color/BROWN"
                 }

@@ -1420,6 +1420,160 @@ output application/json
         </error-handler>
     </flow>
 
+    <flow name="delete:\persons\hair-color\(hairColor):person-service-rest-api-config">
+        <logger level="INFO" message="Incoming REST DELETE /persons/hair-color/{hairColor} with hairColor=#[attributes.uriParams.'hairColor']" doc:name="Log incoming request"/>
+
+        <ee:transform doc:name="Extract hairColor and build SOAP request">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ps http://itmo.ru/person-service
+---
+ps#deleteOneByHairColorRequest: {
+    ps#hairColor: attributes.uriParams.'hairColor'
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="hairColorParam"><![CDATA[%dw 2.0
+output application/java
+---
+attributes.uriParams.'hairColor']]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+
+        <logger level="INFO" message="SOAP Request XML: #[write(payload, 'application/xml')]" doc:name="Log SOAP request"/>
+
+        <wsc:consume config-ref="Web_Service_Consumer_Config" operation="deleteOneByHairColor" doc:name="Call SOAP deleteOneByHairColor"/>
+
+        <logger level="INFO" message="SOAP Response: #[write(payload.body, 'application/xml')]" doc:name="Log SOAP response"/>
+
+        <ee:transform doc:name="Set 204 Status and Empty Body">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+null]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="httpStatus">204</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+
+        <error-handler>
+            <on-error-propagate type="WSC:CANNOT_DISPATCH" enableNotifications="true" logException="true" doc:name="On Error Propagate - SOAP Fault">
+                <ee:transform doc:name="Parse SOAP Fault and Set Error Response">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+
+var errorDesc = lower(error.description default "")
+var errorMsg = error.description default ""
+var faultString = lower(errorMsg)
+
+var isNotFound =
+  (faultString contains "not found") or
+  (faultString contains "does not exist") or
+  (faultString contains "no person")
+
+var isValidationError =
+  (faultString contains "validation") or
+  (faultString contains "invalid") or
+  (faultString contains "must be") or
+  (faultString contains "cannot be")
+---
+if (isNotFound) {
+  error: "PERSON_NOT_FOUND",
+  message: errorMsg,
+  timestamp: now(),
+  path: attributes.requestPath
+} else if (isValidationError) {
+  error: "VALIDATION_ERROR",
+  message: errorMsg,
+  timestamp: now(),
+  path: attributes.requestPath
+} else {
+  error: "BACKEND_ERROR",
+  message: errorMsg,
+  timestamp: now(),
+  path: attributes.requestPath
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus"><![CDATA[%dw 2.0
+output application/java
+
+var errorDesc = lower(error.description default "")
+var faultString = lower(errorDesc)
+
+var isNotFound =
+  (faultString contains "not found") or
+  (faultString contains "does not exist") or
+  (faultString contains "no person")
+
+var isValidationError =
+  (faultString contains "validation") or
+  (faultString contains "invalid") or
+  (faultString contains "must be") or
+  (faultString contains "cannot be")
+---
+if (isNotFound) 404
+else if (isValidationError) 400
+else 500]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers"/>
+            </on-error-propagate>
+
+            <on-error-propagate type="HTTP:CONNECTIVITY" enableNotifications="true" logException="true" doc:name="On Error Propagate - Service Unavailable">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "SERVICE_UNAVAILABLE",
+  message: "Cannot connect to the backend service",
+  timestamp: now(),
+  path: attributes.requestPath,
+  details: error.description
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">502</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers (502)"/>
+            </on-error-propagate>
+
+            <on-error-propagate type="ANY" enableNotifications="true" logException="true" doc:name="On Error Propagate - Internal Error">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "INTERNAL_ERROR",
+  message: "An internal error occurred while deleting person by hair color",
+  timestamp: now(),
+  path: attributes.requestPath,
+  details: (error.description default (error as String))
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">500</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers (500)"/>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+
     <flow name="options:\persons:person-service-rest-api-config">
         <logger level="INFO" message="Handling OPTIONS preflight request for /persons" doc:name="Log OPTIONS request"/>
         <set-payload value="#[null]" doc:name="Set empty payload"/>
@@ -1433,4 +1587,3 @@ output application/json
     </flow>
 
 </mule>
-
