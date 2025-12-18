@@ -23,6 +23,9 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
     </wsc:config>
     <http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="485e5bff-4321-4823-84bf-d48f37796aca" basePath="/soap">
         <http:request-connection host="localhost" port="58080" />
+        <http:response-validator>
+            <http:success-status-code-validator values="200..599"/>
+        </http:response-validator>
     </http:request-config>
     <flow name="person-service-rest-api-main">
         <http:listener config-ref="person-service-rest-api-httpListenerConfig" path="/api/*">
@@ -327,6 +330,36 @@ attributes.queryParams.size default "1000000000"]]></ee:set-variable>
 
     <flow name="post:\persons:person-service-rest-api-config">
         <logger level="INFO" message="Incoming REST POST /persons" doc:name="Log incoming request"/>
+
+        <choice doc:name="Check if payload is empty">
+            <when expression="#[payload == null or isEmpty(payload)]">
+                <ee:transform doc:name="Return missing body error">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "MISSING_REQUEST_BODY",
+  message: "Request body is required but missing",
+  timestamp: now(),
+  path: attributes.requestPath
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                        <ee:set-variable variableName="outboundHeaders"><![CDATA[%dw 2.0
+output application/java
+---
+{
+  "Content-Type": "application/json; charset=UTF-8"
+}]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </when>
+            <otherwise>
+                <logger level="INFO" message="Payload received, proceeding with request" doc:name="Log payload received"/>
+            </otherwise>
+        </choice>
 
         <ee:transform doc:name="Build SOAP createPerson Request">
             <ee:message>
@@ -924,39 +957,46 @@ output application/java
         </ee:transform>
 
         <error-handler>
-            <on-error-propagate type="WSC:CANNOT_DISPATCH" enableNotifications="true" logException="true" doc:name="On Error Propagate - SOAP Fault">
+            <on-error-propagate type="WSC:SOAP_FAULT, WSC:CANNOT_DISPATCH" enableNotifications="true" logException="true" doc:name="On Error Propagate - SOAP Fault">
+                <logger level="INFO" message="SOAP Fault Error Details - Description: #[error.description], Detailed: #[error.detailedDescription], Cause: #[error.cause.message default 'N/A']" doc:name="Log error details"/>
                 <ee:transform doc:name="Parse SOAP Fault and Set Error Response">
                     <ee:message>
                         <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 
 var errorDesc = lower(error.description default "")
-var errorMsg = error.description default ""
-var faultString = lower(errorMsg)
+var detailedDesc = lower(error.detailedDescription default "")
+var causeMsg = lower(error.cause.message default "")
+var errorMsgRaw = error.detailedDescription default error.cause.message default error.description default ""
+var allErrorText = lower(errorDesc ++ " " ++ detailedDesc ++ " " ++ causeMsg)
 
 var isNotFound =
-  (faultString contains "not found") or
-  (faultString contains "does not exist")
+  (allErrorText contains "not found") or
+  (allErrorText contains "does not exist") or
+  (allErrorText contains "personnotfound") or
+  (detailedDesc contains "person with id") and (detailedDesc contains "not found") or
+  (causeMsg contains "not found") or
+  (causeMsg contains "does not exist")
 
 var isValidationError =
-  (faultString contains "validation") or
-  (faultString contains "invalid") or
-  (faultString contains "must be") or
-  (faultString contains "cannot be")
+  (allErrorText contains "validation") or
+  (allErrorText contains "invalid") or
+  (allErrorText contains "must be") or
+  (allErrorText contains "cannot be")
 ---
 if (isNotFound) {
   error: "PERSON_NOT_FOUND",
-  message: errorMsg,
+  message: errorMsgRaw,
   timestamp: now(),
   path: attributes.requestPath
 } else if (isValidationError) {
   error: "VALIDATION_ERROR",
-  message: errorMsg,
+  message: errorMsgRaw,
   timestamp: now(),
   path: attributes.requestPath
 } else {
   error: "BACKEND_ERROR",
-  message: errorMsg,
+  message: errorMsgRaw,
   timestamp: now(),
   path: attributes.requestPath
 }]]></ee:set-payload>
@@ -966,17 +1006,20 @@ if (isNotFound) {
 output application/java
 
 var errorDesc = lower(error.description default "")
-var faultString = lower(errorDesc)
+var detailedDesc = lower(error.detailedDescription default "")
+var allErrorText = lower(errorDesc ++ " " ++ detailedDesc)
 
 var isNotFound =
-  (faultString contains "not found") or
-  (faultString contains "does not exist")
+  (allErrorText contains "not found") or
+  (allErrorText contains "does not exist") or
+  (allErrorText contains "personnotfound") or
+  (detailedDesc contains "person with id") and (detailedDesc contains "not found")
 
 var isValidationError =
-  (faultString contains "validation") or
-  (faultString contains "invalid") or
-  (faultString contains "must be") or
-  (faultString contains "cannot be")
+  (allErrorText contains "validation") or
+  (allErrorText contains "invalid") or
+  (allErrorText contains "must be") or
+  (allErrorText contains "cannot be")
 ---
 if (isNotFound) 404
 else if (isValidationError) 400
@@ -1156,39 +1199,46 @@ output application/java
         </ee:transform>
 
         <error-handler>
-            <on-error-propagate type="WSC:CANNOT_DISPATCH" enableNotifications="true" logException="true" doc:name="On Error Propagate - SOAP Fault">
+            <on-error-propagate type="WSC:SOAP_FAULT, WSC:CANNOT_DISPATCH" enableNotifications="true" logException="true" doc:name="On Error Propagate - SOAP Fault">
+                <logger level="INFO" message="SOAP Fault Error Details - Description: #[error.description], Detailed: #[error.detailedDescription], Cause: #[error.cause.message default 'N/A']" doc:name="Log error details"/>
                 <ee:transform doc:name="Parse SOAP Fault and Set Error Response">
                     <ee:message>
                         <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 
 var errorDesc = lower(error.description default "")
-var errorMsg = error.description default ""
-var faultString = lower(errorMsg)
+var detailedDesc = lower(error.detailedDescription default "")
+var causeMsg = lower(error.cause.message default "")
+var errorMsgRaw = error.detailedDescription default error.cause.message default error.description default ""
+var allErrorText = lower(errorDesc ++ " " ++ detailedDesc ++ " " ++ causeMsg)
 
 var isNotFound =
-  (faultString contains "not found") or
-  (faultString contains "does not exist")
+  (allErrorText contains "not found") or
+  (allErrorText contains "does not exist") or
+  (allErrorText contains "personnotfound") or
+  (detailedDesc contains "person with id") and (detailedDesc contains "not found") or
+  (causeMsg contains "not found") or
+  (causeMsg contains "does not exist")
 
 var isValidationError =
-  (faultString contains "validation") or
-  (faultString contains "invalid") or
-  (faultString contains "must be") or
-  (faultString contains "cannot be")
+  (allErrorText contains "validation") or
+  (allErrorText contains "invalid") or
+  (allErrorText contains "must be") or
+  (allErrorText contains "cannot be")
 ---
 if (isNotFound) {
   error: "PERSON_NOT_FOUND",
-  message: errorMsg,
+  message: errorMsgRaw,
   timestamp: now(),
   path: attributes.requestPath
 } else if (isValidationError) {
   error: "VALIDATION_ERROR",
-  message: errorMsg,
+  message: errorMsgRaw,
   timestamp: now(),
   path: attributes.requestPath
 } else {
   error: "BACKEND_ERROR",
-  message: errorMsg,
+  message: errorMsgRaw,
   timestamp: now(),
   path: attributes.requestPath
 }]]></ee:set-payload>
@@ -1198,17 +1248,23 @@ if (isNotFound) {
 output application/java
 
 var errorDesc = lower(error.description default "")
-var faultString = lower(errorDesc)
+var detailedDesc = lower(error.detailedDescription default "")
+var causeMsg = lower(error.cause.message default "")
+var allErrorText = lower(errorDesc ++ " " ++ detailedDesc ++ " " ++ causeMsg)
 
 var isNotFound =
-  (faultString contains "not found") or
-  (faultString contains "does not exist")
+  (allErrorText contains "not found") or
+  (allErrorText contains "does not exist") or
+  (allErrorText contains "personnotfound") or
+  (detailedDesc contains "person with id") and (detailedDesc contains "not found") or
+  (causeMsg contains "not found") or
+  (causeMsg contains "does not exist")
 
 var isValidationError =
-  (faultString contains "validation") or
-  (faultString contains "invalid") or
-  (faultString contains "must be") or
-  (faultString contains "cannot be")
+  (allErrorText contains "validation") or
+  (allErrorText contains "invalid") or
+  (allErrorText contains "must be") or
+  (allErrorText contains "cannot be")
 ---
 if (isNotFound) 404
 else if (isValidationError) 400
@@ -1308,39 +1364,46 @@ null]]></ee:set-payload>
         </ee:transform>
 
         <error-handler>
-            <on-error-propagate type="WSC:CANNOT_DISPATCH" enableNotifications="true" logException="true" doc:name="On Error Propagate - SOAP Fault">
+            <on-error-propagate type="WSC:SOAP_FAULT, WSC:CANNOT_DISPATCH" enableNotifications="true" logException="true" doc:name="On Error Propagate - SOAP Fault">
+                <logger level="INFO" message="SOAP Fault Error Details - Description: #[error.description], Detailed: #[error.detailedDescription], Cause: #[error.cause.message default 'N/A']" doc:name="Log error details"/>
                 <ee:transform doc:name="Parse SOAP Fault and Set Error Response">
                     <ee:message>
                         <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 
 var errorDesc = lower(error.description default "")
-var errorMsg = error.description default ""
-var faultString = lower(errorMsg)
+var detailedDesc = lower(error.detailedDescription default "")
+var causeMsg = lower(error.cause.message default "")
+var errorMsgRaw = error.detailedDescription default error.cause.message default error.description default ""
+var allErrorText = lower(errorDesc ++ " " ++ detailedDesc ++ " " ++ causeMsg)
 
 var isNotFound =
-  (faultString contains "not found") or
-  (faultString contains "does not exist")
+  (allErrorText contains "not found") or
+  (allErrorText contains "does not exist") or
+  (allErrorText contains "personnotfound") or
+  (detailedDesc contains "person with id") and (detailedDesc contains "not found") or
+  (causeMsg contains "not found") or
+  (causeMsg contains "does not exist")
 
 var isValidationError =
-  (faultString contains "validation") or
-  (faultString contains "invalid") or
-  (faultString contains "must be") or
-  (faultString contains "cannot be")
+  (allErrorText contains "validation") or
+  (allErrorText contains "invalid") or
+  (allErrorText contains "must be") or
+  (allErrorText contains "cannot be")
 ---
 if (isNotFound) {
   error: "PERSON_NOT_FOUND",
-  message: errorMsg,
+  message: errorMsgRaw,
   timestamp: now(),
   path: attributes.requestPath
 } else if (isValidationError) {
   error: "VALIDATION_ERROR",
-  message: errorMsg,
+  message: errorMsgRaw,
   timestamp: now(),
   path: attributes.requestPath
 } else {
   error: "BACKEND_ERROR",
-  message: errorMsg,
+  message: errorMsgRaw,
   timestamp: now(),
   path: attributes.requestPath
 }]]></ee:set-payload>
@@ -1350,17 +1413,23 @@ if (isNotFound) {
 output application/java
 
 var errorDesc = lower(error.description default "")
-var faultString = lower(errorDesc)
+var detailedDesc = lower(error.detailedDescription default "")
+var causeMsg = lower(error.cause.message default "")
+var allErrorText = lower(errorDesc ++ " " ++ detailedDesc ++ " " ++ causeMsg)
 
 var isNotFound =
-  (faultString contains "not found") or
-  (faultString contains "does not exist")
+  (allErrorText contains "not found") or
+  (allErrorText contains "does not exist") or
+  (allErrorText contains "personnotfound") or
+  (detailedDesc contains "person with id") and (detailedDesc contains "not found") or
+  (causeMsg contains "not found") or
+  (causeMsg contains "does not exist")
 
 var isValidationError =
-  (faultString contains "validation") or
-  (faultString contains "invalid") or
-  (faultString contains "must be") or
-  (faultString contains "cannot be")
+  (allErrorText contains "validation") or
+  (allErrorText contains "invalid") or
+  (allErrorText contains "must be") or
+  (allErrorText contains "cannot be")
 ---
 if (isNotFound) 404
 else if (isValidationError) 400
