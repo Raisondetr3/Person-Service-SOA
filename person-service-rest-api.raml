@@ -255,6 +255,55 @@ types:
                 "path": "/persons"
               }
 
+  /max-name:
+    get:
+      displayName: Get Person With Longest Name
+      description: |
+        Returns the person whose `name` field has the maximum character length.
+        If multiple persons tie for longest name, returns one of them (non-deterministic).
+        If no persons exist, returns 404.
+
+      responses:
+        200:
+          description: Person with longest name found
+          body:
+            application/json:
+              type: Person
+              example: |
+                {
+                  "id": 42,
+                  "name": "Christopher Jonathan Bartholomew",
+                  "coordinates": {
+                    "x": 10,
+                    "y": 20
+                  },
+                  "creationDate": "2025-03-15T08:30:00Z",
+                  "height": 185,
+                  "weight": 78.5,
+                  "hairColor": "BROWN",
+                  "eyeColor": "GREEN",
+                  "nationality": "FRANCE",
+                  "location": {
+                    "x": 2,
+                    "y": 3.14,
+                    "z": 1.618,
+                    "name": "Paris"
+                  }
+                }
+
+        404:
+          description: No persons in the collection
+          body:
+            application/json:
+              type: ErrorResponse
+              example: |
+                {
+                  "error": "NO_CONTENT",
+                  "message": "No persons found in the database",
+                  "timestamp": "2025-12-24T10:00:00Z",
+                  "path": "/persons/max-name"
+                }
+
   post:
     displayName: Create Person
     description: Create a new person

@@ -18,6 +18,6 @@ public class OpenApiConfig {
     @Bean
     public OpenAPI customOpenAPI() {
         return new OpenAPI().info(new Info().title("Person Service API"))
-                .servers(List.of(new Server().url("http://localhost:" + serverPort)));
+                .servers(List.of(new Server().url("https://localhost:" + serverPort)));
     }
 }

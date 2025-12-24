@@ -10,7 +10,7 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
         </http:listener-connection>
     </http:listener-config>
     <apikit:config name="person-service-rest-api-config" api="person-service-rest-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
-    <wsc:config name="Web_Service_Consumer_Config" doc:name="Web Service Consumer Config" doc:id="89899fec-03c0-4043-8870-3c24559fb338" >
+    <wsc:config name="Web_Service_Consumer_Config" doc:name="Web Service Consumer Config" doc:id="76559a8e-693d-42bc-9a79-4bcfa7e2b3ba" >
         <wsc:connection
                 wsdlLocation="http://localhost:58080/soap/PersonService.wsdl"
                 service="PersonServicePortService"
@@ -21,7 +21,7 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
             </wsc:custom-transport-configuration>
         </wsc:connection>
     </wsc:config>
-    <http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="485e5bff-4321-4823-84bf-d48f37796aca" basePath="/soap">
+    <http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="ff351dfe-29c1-47e4-a7db-902a5c26afcb" basePath="/soap">
         <http:request-connection host="localhost" port="58080" />
         <http:response-validator>
             <http:success-status-code-validator values="200..599"/>
@@ -36,7 +36,8 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
     "Access-Control-Allow-Origin" : "*",
     "Access-Control-Allow-Methods" : "GET, PUT, POST, DELETE, HEAD, OPTIONS",
     "Access-Control-Allow-Headers" : "*",
-    "Access-Control-Allow-Credentials" : "true"
+    "Access-Control-Allow-Credentials" : "true",
+    "Access-Control-Expose-Headers" : "X-Total-Count, X-Total-Pages, X-Current-Page, X-Page-Size"
 }]]]></http:headers>
             </http:response>
             <http:error-response statusCode="#[vars.httpStatus default 500]">
@@ -59,12 +60,20 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
                         <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
-{message: "Bad request"}]]></ee:set-payload>
+{
+  error: "INVALID_REQUEST",
+  message: error.description default "Bad request - invalid parameter format or value",
+  timestamp: now(),
+  path: attributes.requestPath
+}]]></ee:set-payload>
                     </ee:message>
                     <ee:variables>
                         <ee:set-variable variableName="httpStatus">400</ee:set-variable>
                     </ee:variables>
                 </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers"/>
             </on-error-propagate>
             <on-error-propagate type="APIKIT:NOT_FOUND">
                 <ee:transform doc:name="Transform Message">
@@ -161,21 +170,72 @@ attributes.queryParams.page default "0"]]></ee:set-variable>
 output application/java
 ---
 attributes.queryParams.size default "1000000000"]]></ee:set-variable>
+                <ee:set-variable variableName="filters"><![CDATA[%dw 2.0
+output application/java
+---
+attributes.queryParams.filter default []]]></ee:set-variable>
+                <ee:set-variable variableName="sortBy"><![CDATA[%dw 2.0
+output application/java
+---
+attributes.queryParams.sortBy default []]]></ee:set-variable>
             </ee:variables>
         </ee:transform>
 
-        <logger level="INFO" message="Query params: page=#[vars.page], size=#[vars.size]" doc:name="Log params"/>
+        <logger level="INFO" message="Query params: page=#[vars.page], size=#[vars.size], filters=#[vars.filters], sortBy=#[vars.sortBy]" doc:name="Log params"/>
 
         <ee:transform doc:name="Build SOAP searchPersons Request">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 	output application/xml
 	ns ps http://itmo.ru/person-service
+
+	fun parseFilter(filterStr: String): Object = do {
+		var patternWithOperator = /^([a-zA-Z\.]+)\[([a-zA-Z]+)\]=(.+)$/
+		var patternWithoutOperator = /^([a-zA-Z\.]+)=(.+)$/
+		var matchesWithOp = filterStr scan patternWithOperator
+		var matchesWithoutOp = filterStr scan patternWithoutOperator
+		---
+		if (sizeOf(matchesWithOp) > 0) {
+			field: matchesWithOp[0][1],
+			operator: upper(matchesWithOp[0][2]),
+			value: matchesWithOp[0][3]
+		} else if (sizeOf(matchesWithoutOp) > 0) {
+			field: matchesWithoutOp[0][1],
+			operator: "EQ",
+			value: matchesWithoutOp[0][2]
+		} else null
+	}
+
+	fun parseSortField(sortStr: String): Object = do {
+		var isDesc = sortStr startsWith "-"
+		var fieldName = if (isDesc) sortStr[1 to -1] else sortStr
+		---
+		{
+			property: fieldName,
+			direction: if (isDesc) "DESC" else "ASC"
+		}
+	}
+
+	fun toArray(value) = if (value is Array) value else if (value != null and value != []) [value] else []
+
+	var filterArray = toArray(vars.filters)
+	var sortArray = toArray(vars.sortBy)
+	var parsedFilters = filterArray map parseFilter($) filter ($ != null)
+	var parsedSorts = sortArray map parseSortField($)
 	---
 	ps#searchPersonsRequest: {
+		(ps#filters: parsedFilters map {
+			ps#field: $.field,
+			ps#operator: $.operator,
+			ps#value: $.value
+		}) if (sizeOf(parsedFilters) > 0),
 		ps#pageRequest: {
 			ps#page: vars.page as Number,
-			ps#size: vars.size as Number
+			ps#size: vars.size as Number,
+			(ps#sort: parsedSorts map {
+				ps#property: $.property,
+				ps#direction: $.direction
+			}) if (sizeOf(parsedSorts) > 0)
 		}
 	}
 	]]></ee:set-payload>
@@ -194,7 +254,7 @@ attributes.queryParams.size default "1000000000"]]></ee:set-variable>
                 doc:name="Log SOAP response"
                 message="SOAP Response: #[write(payload.body, 'application/xml')]"/>
 
-        <ee:transform doc:name="SOAP Response -> JSON Array">
+        <ee:transform doc:name="Extract pagination metadata and convert to JSON">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 	output application/json
@@ -245,11 +305,31 @@ attributes.queryParams.size default "1000000000"]]></ee:set-variable>
 	allContent map parsePerson($)
 	]]></ee:set-payload>
             </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="outboundHeaders"><![CDATA[%dw 2.0
+output application/java
+
+var xmlBody = write(payload.body, "application/xml")
+
+fun extractTag(xml: String, tagName: String): String | Null = do {
+	var pattern = "<(?:\\w+:)?" ++ tagName ++ "[^>]*>(.*?)</(?:\\w+:)?" ++ tagName ++ ">"
+	var matches = (xml scan pattern)
+	---
+	if (matches[0]?) matches[0][1] else null
+}
+---
+(vars.outboundHeaders default {}) ++ {
+	'Content-Type': 'application/json; charset=UTF-8',
+	'X-Total-Count': extractTag(xmlBody, "totalElements") default "0",
+	'X-Total-Pages': extractTag(xmlBody, "totalPages") default "1",
+	'X-Current-Page': extractTag(xmlBody, "currentPage") default "0",
+	'X-Page-Size': extractTag(xmlBody, "pageSize") default "0"
+}
+]]></ee:set-variable>
+            </ee:variables>
         </ee:transform>
 
-        <set-variable doc:name="Set outbound Content-Type header"
-                      variableName="outboundHeaders"
-                      value="#[(vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'}]"/>
+        <logger level="INFO" message="Pagination headers set: X-Total-Count=#[vars.outboundHeaders.'X-Total-Count'], X-Total-Pages=#[vars.outboundHeaders.'X-Total-Pages'], X-Current-Page=#[vars.outboundHeaders.'X-Current-Page'], X-Page-Size=#[vars.outboundHeaders.'X-Page-Size']" doc:name="Log pagination headers"/>
 
         <logger level="INFO" message="Returning JSON response: #[payload]" doc:name="Log response"/>
 
@@ -472,32 +552,54 @@ output application/java
         </ee:transform>
 
         <error-handler>
-            <on-error-propagate type="WSC:CANNOT_DISPATCH" enableNotifications="true" logException="true" doc:name="On Error Propagate - SOAP Fault">
+            <on-error-propagate type="WSC:SOAP_FAULT, WSC:CANNOT_DISPATCH" enableNotifications="true" logException="true" doc:name="On Error Propagate - SOAP Fault">
+                <logger level="INFO" message="SOAP Fault Error Details - Description: #[error.description], Detailed: #[error.detailedDescription], Cause: #[error.cause.message default 'N/A']" doc:name="Log error details"/>
                 <ee:transform doc:name="Parse SOAP Fault and Set Error Response">
                     <ee:message>
                         <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 
-var errorDesc = lower(error.description default "")
-var errorMsg = error.description default ""
-var faultString = lower(errorMsg)
+var errorDesc = error.description default ""
+var detailedDesc = error.detailedDescription default ""
+var causeMsg = error.cause.message default ""
+var errorMsgRaw = error.description default error.detailedDescription default error.cause.message default ""
+var allErrorText = lower(errorDesc ++ " " ++ detailedDesc ++ " " ++ causeMsg)
 
 var isValidationError =
-  (faultString contains "validation") or
-  (faultString contains "invalid") or
-  (faultString contains "must be") or
-  (faultString contains "cannot be") or
-  (faultString contains "required") or
-  (faultString contains "constraint")
+  (allErrorText contains "validation") or
+  (allErrorText contains "invalid") or
+  (allErrorText contains "must be") or
+  (allErrorText contains "cannot be") or
+  (allErrorText contains "required") or
+  (allErrorText contains "constraint")
+
+fun parseValidationErrors(msg: String): Object = do {
+    var pattern = /\{([^}]+)\}/
+    var matches = msg scan pattern
+    var errorsString = if (sizeOf(matches) > 0) matches[0][1] else ""
+    var errorPairs = errorsString splitBy ", "
+    ---
+    if (errorsString != "")
+        errorPairs reduce ((pair, acc={}) -> do {
+            var parts = pair splitBy "="
+            var fieldName = trim(parts[0])
+            var fieldMessage = if (sizeOf(parts) > 1) trim(parts[1]) else ""
+            ---
+            acc ++ {(fieldName): fieldMessage}
+        })
+    else {}
+}
 ---
 if (isValidationError) {
-  error: "VALIDATION_ERROR",
-  message: errorMsg,
+  status: 422,
+  error: "VALIDATION_FAILED",
+  message: "Request body validation failed",
+  errors: parseValidationErrors(errorMsgRaw),
   timestamp: now(),
   path: attributes.requestPath
 } else {
   error: "BACKEND_ERROR",
-  message: errorMsg,
+  message: errorMsgRaw,
   timestamp: now(),
   path: attributes.requestPath
 }]]></ee:set-payload>
@@ -507,17 +609,19 @@ if (isValidationError) {
 output application/java
 
 var errorDesc = lower(error.description default "")
-var faultString = lower(errorDesc)
+var detailedDesc = lower(error.detailedDescription default "")
+var causeMsg = lower(error.cause.message default "")
+var allErrorText = lower(errorDesc ++ " " ++ detailedDesc ++ " " ++ causeMsg)
 
 var isValidationError =
-  (faultString contains "validation") or
-  (faultString contains "invalid") or
-  (faultString contains "must be") or
-  (faultString contains "cannot be") or
-  (faultString contains "required") or
-  (faultString contains "constraint")
+  (allErrorText contains "validation") or
+  (allErrorText contains "invalid") or
+  (allErrorText contains "must be") or
+  (allErrorText contains "cannot be") or
+  (allErrorText contains "required") or
+  (allErrorText contains "constraint")
 ---
-if (isValidationError) 400
+if (isValidationError) 422
 else 500]]></ee:set-variable>
                     </ee:variables>
                 </ee:transform>
@@ -1653,6 +1757,179 @@ output application/json
         <logger level="INFO" message="Handling OPTIONS preflight request for /persons/{id}" doc:name="Log OPTIONS request"/>
         <set-payload value="#[null]" doc:name="Set empty payload"/>
         <set-variable variableName="httpStatus" value="200" doc:name="Set 200 status"/>
+    </flow>
+
+    <flow name="get:\persons\max-name:person-service-rest-api-config">
+        <logger level="INFO" message="Incoming REST GET /persons/max-name" doc:name="Log incoming request"/>
+        <ee:transform doc:name="Build SOAP findPersonWithMaxName Request">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ps http://itmo.ru/person-service
+---
+ps#findPersonWithLongestNameRequest: {}
+]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <logger level="INFO" message="SOAP Request XML: #[write(payload, 'application/xml')]" doc:name="Log SOAP request"/>
+        <wsc:consume config-ref="Web_Service_Consumer_Config" operation="findPersonWithLongestName" doc:name="Call SOAP findPersonWithLongestName"/>
+        <logger level="INFO" message="SOAP Response: #[write(payload.body, 'application/xml')]" doc:name="Log SOAP response"/>
+        <ee:transform doc:name="SOAP Response -> JSON Person">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+fun extractTag(xml: String, tagName: String): String | Null = do {
+    var pattern = "<(?:\\w+:)?" ++ tagName ++ "[^>]*>(.*?)</(?:\\w+:)?" ++ tagName ++ ">"
+    var matches = (xml scan pattern)
+    ---
+    if (matches[0]?) matches[0][1] else null
+}
+fun parseCoordinates(coordXml: String): Object | Null = do {
+    if (coordXml == null) null
+    else {
+        x: extractTag(coordXml, "x") as Number,
+        y: extractTag(coordXml, "y") as Number
+    }
+}
+fun parseLocation(locXml: String): Object | Null = do {
+    if (locXml == null) null
+    else {
+        x: extractTag(locXml, "x") as Number,
+        y: extractTag(locXml, "y") as Number,
+        z: extractTag(locXml, "z") as Number,
+        name: extractTag(locXml, "name")
+    }
+}
+---
+do {
+    var xmlBody = write(payload.body, "application/xml")
+    var personPattern = /<(?:\w+:)?findPersonWithLongestNameResponse[^>]*>([\s\S]*?)<\/(?:\w+:)?findPersonWithLongestNameResponse>/
+    var personXml = (xmlBody scan personPattern)[0][1]
+    var coordPattern = /<(?:\w+:)?coordinates[^>]*>([\s\S]*?)<\/(?:\w+:)?coordinates>/
+    var coordXml = (personXml scan coordPattern)[0][1]
+    var locPattern = /<(?:\w+:)?location[^>]*>([\s\S]*?)<\/(?:\w+:)?location>/
+    var locMatches = personXml scan locPattern
+    var locXml = if (sizeOf(locMatches) > 0) locMatches[0][1] else null
+    var rawCreationDate = extractTag(personXml, "creationDate")
+    var cleanCreationDate = if (rawCreationDate != null)
+        (rawCreationDate splitBy /[\+\-]\d{2}:\d{2}/)[0]
+        else null
+    var heightValue = extractTag(personXml, "height")
+    ---
+    {
+        id: extractTag(personXml, "id") as Number,
+        name: extractTag(personXml, "name"),
+        coordinates: parseCoordinates(coordXml),
+        creationDate: cleanCreationDate,
+        height: if (heightValue != null and heightValue != "") heightValue as Number else null,
+        weight: extractTag(personXml, "weight") as Number,
+        hairColor: extractTag(personXml, "hairColor"),
+        eyeColor: extractTag(personXml, "eyeColor"),
+        nationality: extractTag(personXml, "nationality"),
+        location: parseLocation(locXml)
+    }
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="outboundHeaders"><![CDATA[%dw 2.0
+output application/java
+---
+(vars.outboundHeaders default {}) ++ {
+    "Content-Type": "application/json; charset=UTF-8"
+}]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <error-handler>
+            <on-error-propagate type="WSC:SOAP_FAULT, WSC:CANNOT_DISPATCH" enableNotifications="true" logException="true" doc:name="On Error Propagate - SOAP Fault">
+                <logger level="INFO"
+                        message="SOAP Fault in /max-name: #[error.description], detailed: #[error.detailedDescription]"
+                        doc:name="Log error details"/>
+                <ee:transform doc:name="Parse SOAP Fault and Set Error Response">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var allErrorText = lower(error.description default "" ++ " " ++ error.detailedDescription default "")
+var isNotFound =
+  (allErrorText contains "not found") or
+  (allErrorText contains "no person") or
+  (allErrorText contains "empty") or
+  (allErrorText contains "no content")
+---
+if (isNotFound) {
+  error: "NO_CONTENT",
+  message: "No persons found in the database",
+  timestamp: now(),
+  path: attributes.requestPath
+} else {
+  error: "BACKEND_ERROR",
+  message: error.detailedDescription default error.description default "An error occurred in SOAP backend",
+  timestamp: now(),
+  path: attributes.requestPath
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">
+                            <![CDATA[%dw 2.0
+output application/java
+var allErrorText = lower(error.description default "" ++ " " ++ error.detailedDescription default "")
+var isNotFound =
+  (allErrorText contains "not found") or
+  (allErrorText contains "no person") or
+  (allErrorText contains "empty") or
+  (allErrorText contains "no content")
+---
+if (isNotFound) 404 else 500]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers"/>
+            </on-error-propagate>
+            <on-error-propagate type="HTTP:CONNECTIVITY" enableNotifications="true" logException="true" doc:name="On Error Propagate - Backend Unavailable">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "SERVICE_UNAVAILABLE",
+  message: "Cannot connect to the backend service",
+  timestamp: now(),
+  path: attributes.requestPath,
+  details: error.description
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">502</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers (502)"/>
+            </on-error-propagate>
+            <on-error-propagate type="ANY" enableNotifications="true" logException="true" doc:name="On Error Propagate - Internal Error">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "INTERNAL_ERROR",
+  message: "An internal error occurred while retrieving person with max name",
+  timestamp: now(),
+  path: attributes.requestPath,
+  details: (error.description default (error as String))
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">500</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <set-variable variableName="outboundHeaders"
+                              value="#[ (vars.outboundHeaders default {}) ++ {'Content-Type':'application/json; charset=UTF-8'} ]"
+                              doc:name="Set outbound headers (500)"/>
+            </on-error-propagate>
+        </error-handler>
     </flow>
 
 </mule>

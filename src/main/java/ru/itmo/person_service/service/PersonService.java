@@ -65,7 +65,7 @@ public class PersonService {
                 if (value == null || value.trim().isEmpty()) return;
 
                 try {
-                    FilterConfig filterConfig = parseFilterKey(filterKey.toLowerCase());
+                    FilterConfig filterConfig = parseFilterKey(filterKey);
                     Path<Object> path = getFieldPath(root, filterConfig.fieldName);
 
                     if (path == null) {
@@ -105,7 +105,7 @@ public class PersonService {
         }
 
         String fieldName = filterKey.substring(0, bracketStart);
-        String operator = filterKey.substring(bracketStart + 1, bracketEnd);
+        String operator = filterKey.substring(bracketStart + 1, bracketEnd).toLowerCase();
 
         if (!FILTER_OPERATORS.containsKey(operator)) {
             log.warn("Unsupported filter operator: {}", operator);
